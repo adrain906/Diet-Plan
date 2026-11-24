@@ -1,0 +1,2805 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FitTrack - 個人化減脂飲食月曆</title>
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Google Fonts (Inter & Noto Sans TC) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- 引入 Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Inter', 'Noto Sans TC', sans-serif;
+            background-color: #F8FAFC;
+            color: #1E293B;
+        }
+        /* 自訂捲軸樣式 */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #CBD5E1;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94A3B8;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased selection:bg-emerald-100 selection:text-emerald-900">
+
+    <!-- 密碼驗證鎖定畫面 (密碼：0328) -->
+    <div id="passcodeLockScreen" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-sm w-full p-7 shadow-2xl border border-slate-100 text-center space-y-5">
+            <div class="w-14 h-14 rounded-2xl bg-emerald-600 text-white flex items-center justify-center mx-auto shadow-md">
+                <i data-lucide="lock" class="w-7 h-7"></i>
+            </div>
+            <div>
+                <h2 class="text-xl font-bold text-slate-800">FitTrack 減脂追蹤系統</h2>
+                <p class="text-xs text-slate-500 mt-1">請輸入存取密碼以進入成員資料與月曆</p>
+            </div>
+            <div class="space-y-2 text-left">
+                <input type="password" id="passcodeInput" maxlength="10" placeholder="請輸入密碼..."
+                    onkeydown="if(event.key==='Enter') verifyPasscode()"
+                    class="w-full px-4 py-3 text-center text-lg tracking-widest font-bold bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:border-emerald-500 focus:bg-white transition-all">
+                <p id="passcodeErrorMsg" class="hidden text-xs text-rose-500 font-medium text-center">密碼錯誤，請重新輸入</p>
+            </div>
+            <button type="button" onclick="verifyPasscode()"
+                class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-2xl shadow-md transition-all cursor-pointer">
+                解鎖進入系統
+            </button>
+        </div>
+    </div>
+
+    <!-- 頂部導覽列 -->
+    <header class="bg-white border-b border-slate-200/80 sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
+            <!-- 品牌標題 (點擊可隨時返回首頁總覽) -->
+            <div onclick="showHomeView()" class="flex items-center gap-2.5 cursor-pointer group" title="返回首頁總覽">
+                <div class="w-9 h-9 rounded-xl bg-emerald-600 group-hover:bg-emerald-700 text-white flex items-center justify-center shadow-sm transition-colors">
+                    <i data-lucide="leaf" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-tight text-slate-800 leading-none">FitTrack</h1>
+                    <span class="text-[11px] text-slate-400 font-medium">個人化減脂飲食月曆</span>
+                </div>
+            </div>
+
+            <!-- 使用者管理與設定按鈕區 -->
+            <div class="flex items-center gap-2 sm:gap-3">
+                <!-- 返回首頁查詢按鈕 (在月曆儀表板時顯示) -->
+                <button onclick="showHomeView()" id="homeNavBtn"
+                    class="hidden flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium rounded-xl transition-colors">
+                    <i data-lucide="layout-grid" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">成員總覽</span>
+                </button>
+
+                <!-- 使用者切換下拉選單 (有成員時顯示) -->
+                <div id="userSelectWrapper" class="relative flex items-center hidden">
+                    <span id="headerUserAvatar" class="text-base absolute left-2.5 pointer-events-none select-none">🐰</span>
+                    <select id="userSelect" onchange="switchUser(this.value)" 
+                        class="pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 text-slate-700 text-sm font-medium rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all cursor-pointer max-w-[155px] sm:max-w-[200px] truncate">
+                    </select>
+                </div>
+
+                <!-- 新增使用者按鈕 -->
+                <button onclick="openNewUserModal()" title="新增使用者"
+                    class="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-xl shadow-sm transition-colors">
+                    <i data-lucide="plus" class="w-4 h-4"></i>
+                    <span>新增</span>
+                </button>
+
+                <!-- 每月體重紀錄表按鈕 (平常收合，點擊展開) -->
+                <button onclick="toggleWeightHistoryPanel()" id="weightHistoryToggleBtn"
+                    class="hidden flex items-center gap-1.5 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/80 text-sm font-medium rounded-xl transition-all">
+                    <i data-lucide="line-chart" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">體重紀錄表</span>
+                </button>
+
+                <!-- 身體數值與目標設定按鈕 (在儀表板時顯示) -->
+                <button onclick="toggleSettingsPanel()" id="settingsToggleBtn"
+                    class="hidden flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium rounded-xl shadow-sm transition-all">
+                    <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">目標設定</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 1. 首頁總覽與成員查詢畫面 -->
+    <section id="emptyWelcomeView" class="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-10 sm:py-14 flex flex-col justify-center">
+        <!-- 頂部主視覺與功能介紹 -->
+        <div class="text-center max-w-2xl mx-auto mb-10">
+            <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200/80 text-emerald-700 text-xs font-semibold mb-4">
+                <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                <span>211 餐盤科學減脂管理</span>
+            </div>
+            <h2 class="text-2xl sm:text-3xl font-bold text-slate-800 tracking-tight mb-6">
+                專屬於您的個人化減脂與三餐熱量追蹤月曆
+            </h2>
+            <div class="flex flex-wrap items-center justify-center gap-3">
+                <button onclick="openNewUserModal()"
+                    class="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-base font-semibold rounded-2xl shadow-md hover:shadow-lg transition-all cursor-pointer">
+                    <i data-lucide="plus-circle" class="w-5 h-5"></i>
+                    <span>新增成員</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- 已新增使用者即時查詢區 (有成員時自動顯示) -->
+        <div id="homeUserDirectory" class="hidden mb-10 bg-white rounded-2xl border border-slate-200/90 shadow-sm p-5 sm:p-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-4 border-b border-slate-100">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                        <i data-lucide="users" class="w-4 h-4"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h3 class="text-base font-bold text-slate-800">已建立成員查詢</h3>
+                            <span id="storageModeBadge" class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold border border-emerald-200/70">自動保存中</span>
+                        </div>
+                        <p class="text-xs text-slate-400">點選成員卡片即可進入專屬飲食月曆與紀錄</p>
+                    </div>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <!-- 匯出 / 匯入資料備份按鈕 -->
+                    <button type="button" onclick="exportAllDataJson()" title="下載所有成員完整備份檔"
+                        class="inline-flex items-center gap-1 px-2.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-medium transition-colors cursor-pointer">
+                        <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                        <span>匯出備份</span>
+                    </button>
+                    <label title="從備份檔還原成員資料"
+                        class="inline-flex items-center gap-1 px-2.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-medium transition-colors cursor-pointer">
+                        <i data-lucide="upload" class="w-3.5 h-3.5"></i>
+                        <span>匯入還原</span>
+                        <input type="file" id="importBackupInput" accept=".json" onchange="importAllDataJson(event)" class="hidden">
+                    </label>
+                    <!-- 即時搜尋框 -->
+                    <div class="relative w-full sm:w-52">
+                        <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none"></i>
+                        <input type="text" id="homeUserSearchInput" oninput="renderHomeUserDirectory()" placeholder="搜尋成員名稱..."
+                            class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-emerald-500">
+                    </div>
+                </div>
+            </div>
+            <!-- 成員卡片列表 -->
+            <div id="homeUserCardsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                <!-- 由 JS 動態生成成員卡片 -->
+            </div>
+        </div>
+
+        <!-- 三大核心功能特色卡片 -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+                <div class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3">
+                    <i data-lucide="calculator" class="w-5 h-5"></i>
+                </div>
+                <h3 class="text-sm font-bold text-slate-800 mb-1">1. 精準體態與熱量試算</h3>
+                <p class="text-xs text-slate-500 leading-relaxed">輸入身高體重與活動量，自動換算 BMI、理想體重與每日健康熱量赤字預算。</p>
+            </div>
+            <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+                <div class="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mb-3">
+                    <i data-lucide="utensils" class="w-5 h-5"></i>
+                </div>
+                <h3 class="text-sm font-bold text-slate-800 mb-1">2. 營養師 7 日輪替菜單</h3>
+                <p class="text-xs text-slate-500 leading-relaxed">內建專業營養師均衡菜單與豐富外食速查表，支援多品項新增與即時估算熱量。</p>
+            </div>
+            <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+                <div class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-3">
+                    <i data-lucide="calendar-check-2" class="w-5 h-5"></i>
+                </div>
+                <h3 class="text-sm font-bold text-slate-800 mb-1">3. 月曆紅綠燈 Ratio 追蹤</h3>
+                <p class="text-xs text-slate-500 leading-relaxed">結合三餐攝取與運動消耗淨值，以視覺化燈號呈現每日達成率。</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- 2. 主內容區 (有使用者且進入個人儀表板時顯示) -->
+    <main id="mainDashboardView" class="hidden flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
+
+        <!-- 可收合的「每月體重追蹤表 (By 月)」面板 (平常預設隱藏) -->
+        <section id="weightHistoryPanel" class="hidden bg-white rounded-2xl border border-indigo-200/80 shadow-sm p-5 sm:p-6 transition-all">
+            <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-100">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                        <i data-lucide="trending-down" class="w-4 h-4"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-base font-bold text-slate-800">每月體重追蹤紀錄表 (By 月)</h2>
+                        <p class="text-xs text-slate-400">彙整每月 1 號定期維護與當月最新體重變化趨勢</p>
+                    </div>
+                </div>
+                <button onclick="toggleWeightHistoryPanel()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="border-b border-slate-200 text-xs font-semibold text-slate-500 bg-slate-50/80">
+                            <th class="py-2.5 px-3 rounded-tl-lg">紀錄月份</th>
+                            <th class="py-2.5 px-3">維護日期</th>
+                            <th class="py-2.5 px-3">體重 (kg)</th>
+                            <th class="py-2.5 px-3">較上月變化</th>
+                            <th class="py-2.5 px-3">距離目標體重</th>
+                            <th class="py-2.5 px-3 rounded-tr-lg">當時 BMI</th>
+                        </tr>
+                    </thead>
+                    <tbody id="monthlyWeightTableBody" class="divide-y divide-slate-100 text-xs sm:text-sm">
+                        <!-- 由 JS 動態生成每月體重列 -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- 可收合的「身體數值與目標設定」面板 -->
+        <section id="settingsPanel" class="hidden bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6 transition-all">
+            <div class="flex items-center justify-between pb-4 mb-5 border-b border-slate-100">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                        <i data-lucide="calculator" class="w-4 h-4"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-base font-bold text-slate-800">身體數值與減脂目標設定</h2>
+                        <p class="text-xs text-slate-400">請輸入實際身高與體重，系統將自動為您計算理想體重、BMI 與每日熱量預算</p>
+                    </div>
+                </div>
+                <button onclick="toggleSettingsPanel()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- 編輯成員 Q 版 12 生肖頭貼 (純圖案無文字) -->
+            <div class="mb-5 pb-4 border-b border-slate-100">
+                <label class="block text-xs font-semibold text-slate-600 mb-2">Q 版 12 生肖頭貼</label>
+                <div id="settingsAvatarGrid" class="grid grid-cols-6 sm:grid-cols-12 gap-2">
+                    <!-- 由 JS 動態生成 12 生肖按鈕 -->
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+                <!-- 性別 -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1.5">生理性別</label>
+                    <select id="inputGender" onchange="previewCalculations()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-emerald-500">
+                        <option value="">請選擇...</option>
+                        <option value="female">女性</option>
+                        <option value="male">男性</option>
+                    </select>
+                </div>
+                <!-- 年齡 -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1.5">年齡 (歲)</label>
+                    <input type="number" id="inputAge" placeholder="請輸入年齡" min="10" max="100" oninput="previewCalculations()"
+                        class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-emerald-500">
+                </div>
+                <!-- 身高 -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1.5">身高 (cm)</label>
+                    <input type="number" id="inputHeight" placeholder="請輸入身高" min="100" max="250" step="0.1" oninput="previewCalculations()"
+                        class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-emerald-500">
+                </div>
+                <!-- 目前體重 -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1.5">目前體重 (kg)</label>
+                    <input type="number" id="inputWeight" placeholder="請輸入體重" min="30" max="250" step="0.1" oninput="previewCalculations()"
+                        class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-emerald-500">
+                </div>
+                <!-- 目標體重 -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1.5 flex justify-between">
+                        <span>目標體重 (kg)</span>
+                        <button type="button" onclick="applyIdealWeight()" class="text-[11px] text-emerald-600 hover:underline font-medium">帶入標準理想值</button>
+                    </label>
+                    <input type="number" id="inputTargetWeight" placeholder="自動或自訂目標" min="30" max="250" step="0.1" oninput="previewCalculations()"
+                        class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-emerald-500">
+                </div>
+                <!-- 日常活動量 -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1.5">日常活動量</label>
+                    <select id="inputActivity" onchange="previewCalculations()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-emerald-500">
+                        <option value="1.2">久坐少動 (辦公室)</option>
+                        <option value="1.375">輕度活動 (每週運動1-3天)</option>
+                        <option value="1.55">中度活動 (每週運動3-5天)</option>
+                        <option value="1.725">高度活動 (每週運動6-7天)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- 即時試算結果預覽條 -->
+            <div class="mt-5 p-4 bg-emerald-50/70 border border-emerald-100 rounded-xl flex flex-wrap items-center justify-between gap-4">
+                <div class="flex flex-wrap items-center gap-6 text-sm">
+                    <div>
+                        <span class="text-slate-500 text-xs block">目前 BMI</span>
+                        <span id="previewCurrentBmi" class="font-bold text-slate-800 text-base">--</span>
+                    </div>
+                    <div>
+                        <span class="text-slate-500 text-xs block">標準理想體重 (BMI 22)</span>
+                        <span id="previewIdealWeight" class="font-bold text-emerald-700 text-base">--</span>
+                    </div>
+                    <div>
+                        <span class="text-slate-500 text-xs block">目標 BMI</span>
+                        <span id="previewTargetBmi" class="font-bold text-slate-800 text-base">--</span>
+                    </div>
+                    <div>
+                        <span class="text-slate-500 text-xs block">每日消耗 (TDEE)</span>
+                        <span id="previewTdee" class="font-bold text-slate-800 text-base">-- kcal</span>
+                    </div>
+                    <div>
+                        <span class="text-slate-500 text-xs block">建議減脂熱量預算</span>
+                        <span id="previewTargetCal" class="font-bold text-emerald-700 text-base">-- kcal / 日</span>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2 ml-auto">
+                    <button onclick="deleteCurrentUser()" id="deleteUserBtn" class="px-3.5 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 rounded-xl transition-colors">
+                        刪除此成員
+                    </button>
+                    <button onclick="saveUserSettings()" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl shadow-sm transition-colors flex items-center gap-1.5">
+                        <i data-lucide="check" class="w-4 h-4"></i>
+                        <span>儲存並生成營養師計畫</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 頂部四大核心數據卡片 -->
+        <section class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <!-- 卡片 1: 目前體重 & BMI -->
+            <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between">
+                <div class="flex items-center justify-between text-slate-400 mb-2">
+                    <span class="text-xs font-semibold uppercase tracking-wider">目前體態</span>
+                    <i data-lucide="scale" class="w-4 h-4 text-slate-400"></i>
+                </div>
+                <div>
+                    <div class="flex items-baseline gap-2">
+                        <span id="cardCurrentWeight" class="text-2xl font-bold text-slate-800">--</span>
+                        <span class="text-xs text-slate-500 font-medium">kg</span>
+                    </div>
+                    <div class="mt-1 flex items-center gap-1.5">
+                        <span class="text-xs text-slate-500">BMI: <strong id="cardCurrentBmi" class="text-slate-700">--</strong></span>
+                        <span id="cardBmiBadge" class="text-[10px] px-1.5 py-0.5 rounded-md font-medium bg-slate-100 text-slate-600">未設定</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 卡片 2: 理想體重 & 目標 BMI -->
+            <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between">
+                <div class="flex items-center justify-between text-slate-400 mb-2">
+                    <span class="text-xs font-semibold uppercase tracking-wider">減脂目標</span>
+                    <i data-lucide="target" class="w-4 h-4 text-emerald-500"></i>
+                </div>
+                <div>
+                    <div class="flex items-baseline gap-2">
+                        <span id="cardTargetWeight" class="text-2xl font-bold text-emerald-600">--</span>
+                        <span class="text-xs text-slate-500 font-medium">kg</span>
+                        <span id="cardWeightDiff" class="text-xs font-medium text-slate-400 ml-auto"></span>
+                    </div>
+                    <div class="mt-1 flex items-center gap-2 text-xs text-slate-500">
+                        <span>目標 BMI: <strong id="cardTargetBmi" class="text-slate-700">--</strong></span>
+                        <span class="text-slate-300">|</span>
+                        <span>標準理想: <strong id="cardIdealWeight" class="text-slate-700">--</strong>kg</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 卡片 3: 每日計畫熱量 -->
+            <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between">
+                <div class="flex items-center justify-between text-slate-400 mb-2">
+                    <span class="text-xs font-semibold uppercase tracking-wider">每日熱量預算</span>
+                    <i data-lucide="flame" class="w-4 h-4 text-amber-500"></i>
+                </div>
+                <div>
+                    <div class="flex items-baseline gap-1.5">
+                        <span id="cardDailyCal" class="text-2xl font-bold text-slate-800">--</span>
+                        <span class="text-xs text-slate-500 font-medium">kcal / 日</span>
+                    </div>
+                    <div class="mt-1 text-xs text-slate-500 truncate" id="cardMacroSplit">
+                        早 -- · 午 -- · 晚 --
+                    </div>
+                </div>
+            </div>
+
+            <!-- 卡片 4: 本月平均達成率 (Ratio) -->
+            <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between">
+                <div class="flex items-center justify-between text-slate-400 mb-2">
+                    <span class="text-xs font-semibold uppercase tracking-wider">本月平均 Ratio</span>
+                    <i data-lucide="pie-chart" class="w-4 h-4 text-indigo-500"></i>
+                </div>
+                <div>
+                    <div class="flex items-baseline gap-2">
+                        <span id="cardMonthRatio" class="text-2xl font-bold text-slate-800">0%</span>
+                        <span id="cardMonthLoggedDays" class="text-xs text-slate-400 font-medium">已紀錄 0 天</span>
+                    </div>
+                    <div class="mt-2 w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                        <div id="cardMonthRatioBar" class="bg-emerald-500 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 核心雙欄互動區：左側月曆 (60%) + 右側每日計畫與飲食/運動維護 (40%) -->
+        <section class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            
+            <!-- 左側：互動式飲食追蹤月曆 -->
+            <div class="lg:col-span-7 bg-white rounded-2xl border border-slate-200/80 shadow-xs p-5 sm:p-6">
+                <!-- 月曆控制頂部列 -->
+                <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+                    <div class="flex items-center gap-2">
+                        <button onclick="changeMonth(-1)" class="p-2 hover:bg-slate-100 rounded-xl text-slate-600 transition-colors" title="上個月">
+                            <i data-lucide="chevron-left" class="w-5 h-5"></i>
+                        </button>
+                        <h2 id="calendarMonthTitle" class="text-lg font-bold text-slate-800 min-w-[115px] text-center">2026年 11月</h2>
+                        <button onclick="changeMonth(1)" class="p-2 hover:bg-slate-100 rounded-xl text-slate-600 transition-colors" title="下個月">
+                            <i data-lucide="chevron-right" class="w-5 h-5"></i>
+                        </button>
+                        <button onclick="goToToday()" class="ml-1 px-2.5 py-1 text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors">
+                            今天
+                        </button>
+                    </div>
+
+                    <!-- 狀態圖例說明 -->
+                    <div class="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+                        <span class="flex items-center gap-1"><span class="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-semibold text-[10px]">已維護</span>飲食</span>
+                        <span class="flex items-center gap-1"><span class="px-1.5 py-0.5 rounded bg-sky-100 text-sky-700 font-semibold text-[10px]">運動</span>運動</span>
+                        <span class="flex items-center gap-1"><span class="px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 font-semibold text-[10px]">1號體重</span>每月1號維護</span>
+                        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>達標</span>
+                        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-400 inline-block"></span>偏低</span>
+                        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rose-500 inline-block"></span>超標</span>
+                    </div>
+                </div>
+
+                <!-- 星期表頭 -->
+                <div class="grid grid-cols-7 gap-1 sm:gap-1.5 text-center text-xs font-semibold text-slate-400 pb-2">
+                    <div class="text-rose-400">日</div>
+                    <div>一</div>
+                    <div>二</div>
+                    <div>三</div>
+                    <div>四</div>
+                    <div>五</div>
+                    <div class="text-emerald-600">六</div>
+                </div>
+
+                <!-- 月曆日期格子網格 -->
+                <div id="calendarGrid" class="grid grid-cols-7 gap-1 sm:gap-1.5">
+                    <!-- 由 JS 動態生成 -->
+                </div>
+            </div>
+
+            <!-- 右側：當日飲食計畫與多品項紀錄維護面板 -->
+            <div class="lg:col-span-5 bg-white rounded-2xl border border-slate-200/80 shadow-xs p-5 sm:p-6 space-y-5">
+                <!-- 面板標題與當日總結 Ratio -->
+                <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span id="selectedDateDisplay" class="text-lg font-bold text-slate-800">2026-11-24</span>
+                            <span id="selectedDayWeekday" class="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md font-medium">週二</span>
+                        </div>
+                        <p class="text-xs text-slate-400 mt-0.5">新增多項飲食與運動紀錄，即時自動計算淨熱量 Ratio</p>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-xs text-slate-400">當日 Ratio</div>
+                        <div class="flex items-center justify-end gap-1.5">
+                            <span id="dayTotalRatio" class="text-xl font-bold text-slate-800">0%</span>
+                            <span id="dayStatusBadge" class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">未紀錄</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 每月 1 號體重維護區塊 (選中每月 1 號或已有體重紀錄時高亮提示) -->
+                <div id="monthlyWeightCard" class="p-3.5 rounded-xl border border-indigo-200 bg-indigo-50/50 space-y-2.5">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <span class="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                                <i data-lucide="scale" class="w-3.5 h-3.5"></i>
+                            </span>
+                            <div>
+                                <h3 id="monthlyWeightCardTitle" class="font-bold text-xs sm:text-sm text-indigo-950">每月 1 號定期體重維護</h3>
+                                <p id="monthlyWeightCardSub" class="text-[11px] text-indigo-600/80">請輸入本月 1 號早晨空腹體重，自動同步至體重紀錄表</p>
+                            </div>
+                        </div>
+                        <span id="monthlyWeightSavedBadge" class="hidden text-[11px] font-semibold px-2 py-0.5 rounded-full bg-indigo-600 text-white">已維護</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="relative flex-1">
+                            <input type="number" id="dailyWeightInput" placeholder="輸入體重 (kg)" step="0.1" min="25" max="250"
+                                onkeydown="if(event.key==='Enter') saveDailyWeightLog()"
+                                class="w-full pl-3 pr-9 py-2 text-xs font-semibold bg-white border border-indigo-200 rounded-lg focus:outline-none focus:border-indigo-500">
+                            <span class="absolute right-2.5 top-2 text-[11px] text-slate-400">kg</span>
+                        </div>
+                        <button type="button" onclick="saveDailyWeightLog()"
+                            class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shrink-0 transition-colors">
+                            儲存體重
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 當日熱量進度條 (含飲食攝取與運動消耗淨值計算) -->
+                <div class="bg-slate-50 p-3.5 rounded-xl space-y-2">
+                    <div class="flex flex-wrap justify-between gap-1 text-xs font-medium">
+                        <span class="text-slate-600">食物攝取：<strong id="dayFoodCal" class="text-slate-800">0</strong> kcal</span>
+                        <span class="text-sky-600">運動消耗：<strong id="dayExerciseCal" class="text-sky-700">-0</strong> kcal</span>
+                        <span class="text-slate-700">淨攝取：<strong id="dayActualCal" class="text-slate-900">0</strong> / <strong id="dayPlanCal" class="text-emerald-700">--</strong> kcal</span>
+                    </div>
+                    <div class="w-full bg-slate-200/80 h-2 rounded-full overflow-hidden">
+                        <div id="dayProgressBar" class="bg-emerald-500 h-full rounded-full transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                    <div id="dayDiffHint" class="text-[11px] text-slate-500 text-right">
+                        請先完成身體數值設定以取得熱量預算
+                    </div>
+                </div>
+
+                <!-- 三餐計畫與多品項紀錄表單 -->
+                <div class="space-y-4">
+                    <!-- 早餐 -->
+                    <div class="p-4 rounded-xl border border-slate-200/90 bg-white space-y-3">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <span class="w-6 h-6 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center text-xs font-bold">早</span>
+                                <h3 class="font-bold text-sm text-slate-800">早餐計畫與紀錄</h3>
+                            </div>
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-xs font-semibold text-slate-700 bg-slate-100 px-2.5 py-0.5 rounded-full">
+                                    已記 <span id="mealTotalBreakfastCal">0</span> kcal
+                                </span>
+                                <span class="text-xs font-medium text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full">
+                                    建議 <span id="planBreakfastCal">--</span> kcal
+                                </span>
+                            </div>
+                        </div>
+                        <!-- 營養師建議飲食 -->
+                        <div class="text-xs text-slate-700 bg-slate-50 px-3 py-2 rounded-lg flex items-start gap-2 leading-relaxed">
+                            <i data-lucide="sparkles" class="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5"></i>
+                            <span id="planBreakfastText">請先完成上方「目標設定」，系統將為您生成專屬營養師菜單</span>
+                        </div>
+                        <!-- 已新增的多項食物明細列表 -->
+                        <div id="mealItemsListBreakfast" class="space-y-1.5"></div>
+                        <!-- 常見食物快捷選單 (點選即新增一筆) -->
+                        <div class="flex items-center gap-2">
+                            <select id="quickSelectBreakfast" onchange="quickAddFood('breakfast', this)" class="w-full text-xs bg-slate-50 border border-slate-200 text-slate-600 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-emerald-500">
+                                <option value="">⚡ 點選快速加入早餐品項 (可多次加入)...</option>
+                            </select>
+                        </div>
+                        <!-- 手動新增食物品項 (支援即時算熱量 + 點擊加入清單) -->
+                        <div class="flex items-center gap-1.5">
+                            <input type="text" id="actualBreakfastFood" placeholder="手動輸入食物 (如:水煮蛋)" oninput="handleFoodTextInput('breakfast')" onkeydown="if(event.key==='Enter') addManualFoodItem('breakfast')"
+                                class="flex-1 min-w-0 px-2.5 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500">
+                            <div class="relative w-24 shrink-0">
+                                <input type="number" id="actualBreakfastCal" placeholder="熱量" min="0" oninput="handleManualCalInput('breakfast')" onkeydown="if(event.key==='Enter') addManualFoodItem('breakfast')"
+                                    class="w-full pl-2 pr-7 py-2 text-xs font-semibold bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500">
+                                <span class="absolute right-2 top-2 text-[10px] text-slate-400">kcal</span>
+                            </div>
+                            <button type="button" onclick="addManualFoodItem('breakfast')" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shrink-0 transition-colors">
+                                ＋加入
+                            </button>
+                        </div>
+                        <div id="autoCalcHintBreakfast" class="hidden text-[11px] text-emerald-600 flex items-center gap-1">
+                            <i data-lucide="wand-2" class="w-3 h-3"></i>
+                            <span>已自動估算熱量，點「＋加入」即可新增至上方清單</span>
+                        </div>
+                    </div>
+
+                    <!-- 午餐 -->
+                    <div class="p-4 rounded-xl border border-slate-200/90 bg-white space-y-3">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <span class="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-xs font-bold">午</span>
+                                <h3 class="font-bold text-sm text-slate-800">午餐計畫與紀錄</h3>
+                            </div>
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-xs font-semibold text-slate-700 bg-slate-100 px-2.5 py-0.5 rounded-full">
+                                    已記 <span id="mealTotalLunchCal">0</span> kcal
+                                </span>
+                                <span class="text-xs font-medium text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full">
+                                    建議 <span id="planLunchCal">--</span> kcal
+                                </span>
+                            </div>
+                        </div>
+                        <div class="text-xs text-slate-700 bg-slate-50 px-3 py-2 rounded-lg flex items-start gap-2 leading-relaxed">
+                            <i data-lucide="sparkles" class="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5"></i>
+                            <span id="planLunchText">請先完成上方「目標設定」，系統將為您生成專屬營養師菜單</span>
+                        </div>
+                        <!-- 已新增的多項食物明細列表 -->
+                        <div id="mealItemsListLunch" class="space-y-1.5"></div>
+                        <div class="flex items-center gap-2">
+                            <select id="quickSelectLunch" onchange="quickAddFood('lunch', this)" class="w-full text-xs bg-slate-50 border border-slate-200 text-slate-600 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-emerald-500">
+                                <option value="">⚡ 點選快速加入午餐品項 (可多次加入)...</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <input type="text" id="actualLunchFood" placeholder="手動輸入食物 (如:燙青菜)" oninput="handleFoodTextInput('lunch')" onkeydown="if(event.key==='Enter') addManualFoodItem('lunch')"
+                                class="flex-1 min-w-0 px-2.5 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500">
+                            <div class="relative w-24 shrink-0">
+                                <input type="number" id="actualLunchCal" placeholder="熱量" min="0" oninput="handleManualCalInput('lunch')" onkeydown="if(event.key==='Enter') addManualFoodItem('lunch')"
+                                    class="w-full pl-2 pr-7 py-2 text-xs font-semibold bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500">
+                                <span class="absolute right-2 top-2 text-[10px] text-slate-400">kcal</span>
+                            </div>
+                            <button type="button" onclick="addManualFoodItem('lunch')" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shrink-0 transition-colors">
+                                ＋加入
+                            </button>
+                        </div>
+                        <div id="autoCalcHintLunch" class="hidden text-[11px] text-emerald-600 flex items-center gap-1">
+                            <i data-lucide="wand-2" class="w-3 h-3"></i>
+                            <span>已自動估算熱量，點「＋加入」即可新增至上方清單</span>
+                        </div>
+                    </div>
+
+                    <!-- 晚餐 -->
+                    <div class="p-4 rounded-xl border border-slate-200/90 bg-white space-y-3">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <span class="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-xs font-bold">晚</span>
+                                <h3 class="font-bold text-sm text-slate-800">晚餐計畫與紀錄</h3>
+                            </div>
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-xs font-semibold text-slate-700 bg-slate-100 px-2.5 py-0.5 rounded-full">
+                                    已記 <span id="mealTotalDinnerCal">0</span> kcal
+                                </span>
+                                <span class="text-xs font-medium text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full">
+                                    建議 <span id="planDinnerCal">--</span> kcal
+                                </span>
+                            </div>
+                        </div>
+                        <div class="text-xs text-slate-700 bg-slate-50 px-3 py-2 rounded-lg flex items-start gap-2 leading-relaxed">
+                            <i data-lucide="sparkles" class="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5"></i>
+                            <span id="planDinnerText">請先完成上方「目標設定」，系統將為您生成專屬營養師菜單</span>
+                        </div>
+                        <!-- 已新增的多項食物明細列表 -->
+                        <div id="mealItemsListDinner" class="space-y-1.5"></div>
+                        <div class="flex items-center gap-2">
+                            <select id="quickSelectDinner" onchange="quickAddFood('dinner', this)" class="w-full text-xs bg-slate-50 border border-slate-200 text-slate-600 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-emerald-500">
+                                <option value="">⚡ 點選快速加入晚餐品項 (可多次加入)...</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <input type="text" id="actualDinnerFood" placeholder="手動輸入食物 (如:清蒸魚)" oninput="handleFoodTextInput('dinner')" onkeydown="if(event.key==='Enter') addManualFoodItem('dinner')"
+                                class="flex-1 min-w-0 px-2.5 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500">
+                            <div class="relative w-24 shrink-0">
+                                <input type="number" id="actualDinnerCal" placeholder="熱量" min="0" oninput="handleManualCalInput('dinner')" onkeydown="if(event.key==='Enter') addManualFoodItem('dinner')"
+                                    class="w-full pl-2 pr-7 py-2 text-xs font-semibold bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500">
+                                <span class="absolute right-2 top-2 text-[10px] text-slate-400">kcal</span>
+                            </div>
+                            <button type="button" onclick="addManualFoodItem('dinner')" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shrink-0 transition-colors">
+                                ＋加入
+                            </button>
+                        </div>
+                        <div id="autoCalcHintDinner" class="hidden text-[11px] text-emerald-600 flex items-center gap-1">
+                            <i data-lucide="wand-2" class="w-3 h-3"></i>
+                            <span>已自動估算熱量，點「＋加入」即可新增至上方清單</span>
+                        </div>
+                    </div>
+
+                    <!-- 運動消耗紀錄區塊 -->
+                    <div class="p-4 rounded-xl border border-sky-200/80 bg-sky-50/30 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <span class="w-6 h-6 rounded-lg bg-sky-100 text-sky-600 flex items-center justify-center">
+                                    <i data-lucide="flame" class="w-3.5 h-3.5"></i>
+                                </span>
+                                <h3 class="font-bold text-sm text-slate-800">每日運動消耗紀錄</h3>
+                            </div>
+                            <span class="text-xs font-semibold text-sky-700 bg-sky-100/80 px-2.5 py-0.5 rounded-full">
+                                總消耗 <span id="exerciseTotalCalDisplay">0</span> kcal
+                            </span>
+                        </div>
+
+                        <!-- 已新增的運動明細列表 -->
+                        <div id="exerciseItemsList" class="space-y-1.5"></div>
+
+                        <!-- 運動項目、時間、消耗熱量選擇與新增 -->
+                        <div class="grid grid-cols-12 gap-1.5 items-center">
+                            <!-- 運動項目下拉選單 -->
+                            <select id="exerciseTypeSelect" onchange="recalculateExercisePreview()" class="col-span-5 text-xs bg-white border border-slate-200 text-slate-700 rounded-lg px-2 py-2 focus:outline-none focus:border-sky-500">
+                                <option value="">選擇運動項目...</option>
+                            </select>
+                            <!-- 運動時間下拉選單 -->
+                            <select id="exerciseDurationSelect" onchange="recalculateExercisePreview()" class="col-span-3 text-xs bg-white border border-slate-200 text-slate-700 rounded-lg px-2 py-2 focus:outline-none focus:border-sky-500">
+                                <option value="15">15 分鐘</option>
+                                <option value="30" selected>30 分鐘</option>
+                                <option value="45">45 分鐘</option>
+                                <option value="60">60 分鐘</option>
+                                <option value="90">90 分鐘</option>
+                            </select>
+                            <!-- 消耗熱量 (自動依體重與時間換算，亦可手動微調) -->
+                            <div class="col-span-4 flex items-center gap-1">
+                                <div class="relative flex-1 min-w-0">
+                                    <input type="number" id="exerciseBurnCalInput" placeholder="消耗" min="0"
+                                        class="w-full pl-2 pr-6 py-2 text-xs font-semibold text-sky-700 bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-sky-500">
+                                    <span class="absolute right-1.5 top-2 text-[9px] text-slate-400">kcal</span>
+                                </div>
+                                <button type="button" onclick="addExerciseItem()" class="px-2.5 py-2 bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold rounded-lg shrink-0 transition-colors" title="新增運動紀錄">
+                                    ＋
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- 新增使用者 Modal (含 Q 版 12 生肖頭貼選擇 - 純動物圖案無文字) -->
+    <div id="newUserModal" class="hidden fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
+            <div class="flex items-center justify-between">
+                <h3 class="text-lg font-bold text-slate-800">新增減脂成員</h3>
+                <button onclick="closeNewUserModal()" class="text-slate-400 hover:text-slate-600">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <p class="text-xs text-slate-500">每位成員擁有獨立的身體數據與月曆紀錄，互不影響。</p>
+
+            <!-- Q 版 12 生肖動物頭貼選擇器 -->
+            <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-2">選擇專屬 Q 版 12 生肖頭貼</label>
+                <div id="newUserAvatarGrid" class="grid grid-cols-6 gap-2">
+                    <!-- 由 JS 動態生成 12 生肖頭貼按鈕 -->
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1.5">成員名稱 / 暱稱</label>
+                <input type="text" id="newUserNameInput" placeholder="例如：小美、Kevin..." onkeydown="if(event.key==='Enter') createNewUser()"
+                    class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-emerald-500">
+            </div>
+            <div class="flex justify-end gap-2 pt-2">
+                <button onclick="closeNewUserModal()" class="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">取消</button>
+                <button onclick="createNewUser()" class="px-5 py-2 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-sm transition-colors">建立並設定目標</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 輕量提示氣泡 (Toast) -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+        <div class="bg-slate-800 text-white text-xs font-medium px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-2">
+            <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i>
+            <span id="toastMessage">已自動儲存</span>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, deleteDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // =========================================================================
+        // 專屬 Firebase 雲端資料庫設定 (diet-plan-da839)
+        // 上傳至 GitHub Pages 後即可達成「多人跨裝置即時共用 ＋ 永久保存」
+        // =========================================================================
+        const CUSTOM_FIREBASE_CONFIG = {
+            apiKey: "AIzaSyCZyJD_iULtK-1FIFYUq2i-CiuErIcNGHA",
+            authDomain: "diet-plan-da839.firebaseapp.com",
+            projectId: "diet-plan-da839",
+            storageBucket: "diet-plan-da839.firebasestorage.app",
+            messagingSenderId: "703424900930",
+            appId: "1:703424900930:web:912a3bfb67ae202ac062db"
+        };
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'diet-plan-da839';
+        const firebaseConfig = CUSTOM_FIREBASE_CONFIG || (typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null);
+
+        let db = null;
+        let auth = null;
+        let currentAuthUser = null;
+        let unsubscribeUsers = null;
+
+        if (firebaseConfig) {
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+            } catch (err) {
+                console.error('雲端初始化失敗，自動切換為本機永久儲存:', err);
+            }
+        }
+
+        // 暴露雲端同步方法給主程式呼叫 (若無網路則優雅降級至本機永久保存)
+        window.cloudSync = {
+            hasCloudConfig: () => Boolean(db && auth),
+            isReady: () => Boolean(db && currentAuthUser),
+            initAndListen: async (onUsersUpdated) => {
+                if (!db || !auth) return false;
+                try {
+                    // 若已設定專屬 CUSTOM_FIREBASE_CONFIG，直接使用匿名登入 (避免與預覽環境的預設 Token 衝突)
+                    if (!CUSTOM_FIREBASE_CONFIG && typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        const cred = await signInWithCustomToken(auth, __initial_auth_token);
+                        currentAuthUser = cred.user;
+                    } else {
+                        const cred = await signInAnonymously(auth);
+                        currentAuthUser = cred.user;
+                    }
+
+                    if (!currentAuthUser) return false;
+
+                    const usersColRef = collection(db, 'artifacts', appId, 'public', 'data', 'fittrack_users');
+                    if (unsubscribeUsers) unsubscribeUsers();
+                    unsubscribeUsers = onSnapshot(usersColRef, (snapshot) => {
+                        const remoteUsers = {};
+                        snapshot.forEach((docSnap) => {
+                            remoteUsers[docSnap.id] = docSnap.data();
+                        });
+                        onUsersUpdated(remoteUsers);
+                    }, (error) => {
+                        console.error('即時資料監聽錯誤:', error);
+                    });
+                    return true;
+                } catch (err) {
+                    console.error('驗證或連線失敗，改用本機永久儲存:', err);
+                    return false;
+                }
+            },
+            saveUser: async (userId, userData) => {
+                if (!db || !currentAuthUser || !userId || !userData) return;
+                try {
+                    const userDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'fittrack_users', userId);
+                    await setDoc(userDocRef, JSON.parse(JSON.stringify(userData)));
+                } catch (err) {
+                    console.error('雲端儲存失敗:', err);
+                }
+            },
+            deleteUser: async (userId) => {
+                if (!db || !currentAuthUser || !userId) return;
+                try {
+                    const userDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'fittrack_users', userId);
+                    await deleteDoc(userDocRef);
+                } catch (err) {
+                    console.error('雲端刪除失敗:', err);
+                }
+            }
+        };
+    </script>
+
+    <script>
+        // ==========================================
+        // 0. 密碼鎖驗證邏輯 (密碼：0328)
+        // ==========================================
+        const APP_PASSCODE = '0328';
+        const LOCAL_BACKUP_KEY = 'fittrack_github_persistent_v1';
+        let isUnlocked = false;
+
+        function verifyPasscode() {
+            const inputEl = document.getElementById('passcodeInput');
+            const errEl = document.getElementById('passcodeErrorMsg');
+            const lockScreen = document.getElementById('passcodeLockScreen');
+
+            if (inputEl.value.trim() === APP_PASSCODE) {
+                isUnlocked = true;
+                errEl.classList.add('hidden');
+                lockScreen.classList.add('hidden');
+                startDataSyncEngine();
+                showToast('驗證成功，歡迎使用 FitTrack！');
+            } else {
+                errEl.classList.remove('hidden');
+                inputEl.value = '';
+                inputEl.focus();
+            }
+        }
+
+        // ==========================================
+        // 1. 全域狀態與雙引擎永久儲存管理 (GitHub Pages + 雲端)
+        // ==========================================
+        let appState = {
+            currentUserId: null,
+            users: {}
+        };
+
+        let isHomeViewActive = true;
+
+        const todayObj = new Date();
+        let currentViewYear = todayObj.getFullYear();
+        let currentViewMonth = todayObj.getMonth();
+        let selectedDateStr = formatDate(todayObj);
+
+        const manualCalOverride = { breakfast: false, lunch: false, dinner: false };
+
+        // Q 版 12 生肖頭貼清單 (純動物圖案無文字)
+        const ZODIAC_AVATARS = [
+            { emoji: '🐭', bg: 'bg-slate-100' },
+            { emoji: '🐮', bg: 'bg-amber-50' },
+            { emoji: '🐯', bg: 'bg-orange-50' },
+            { emoji: '🐰', bg: 'bg-pink-50' },
+            { emoji: '🐲', bg: 'bg-emerald-50' },
+            { emoji: '🐍', bg: 'bg-lime-50' },
+            { emoji: '🐴', bg: 'bg-yellow-50' },
+            { emoji: '🐑', bg: 'bg-stone-100' },
+            { emoji: '🐵', bg: 'bg-amber-100/60' },
+            { emoji: '🐔', bg: 'bg-rose-50' },
+            { emoji: '🐶', bg: 'bg-orange-100/60' },
+            { emoji: '🐷', bg: 'bg-pink-100/60' }
+        ];
+
+        let selectedNewUserAvatar = '🐰';
+
+        // 常見運動項目與標準 METs 代謝當量 (依據 ACSM 美國運動醫學會身體活動指南精準校準)
+        const EXERCISE_OPTIONS = [
+            { id: 'brisk_walk', name: '快走 / 健走 (約 5.5km/h)', met: 4.3 },
+            { id: 'jogging', name: '慢跑 (約 8km/h)', met: 8.3 },
+            { id: 'cycling', name: '室內飛輪 / 腳踏車 (中等強度)', met: 6.8 },
+            { id: 'swimming', name: '游泳 (自由式/蛙式中等強度)', met: 7.0 },
+            { id: 'weight_training', name: '健身房重訓 / 肌力訓練', met: 5.0 },
+            { id: 'jump_rope', name: '跳繩 (中等節奏)', met: 9.8 },
+            { id: 'hiit', name: 'HIIT 高強度間歇運動', met: 8.8 },
+            { id: 'yoga', name: '瑜珈 / 伸展皮拉提斯', met: 2.8 },
+            { id: 'badminton', name: '羽球 / 桌球 (一般對打)', met: 5.5 },
+            { id: 'basketball', name: '籃球 / 網球 (一般運動)', met: 6.5 },
+            { id: 'elliptical', name: '滑步機 / 登階機', met: 5.8 },
+            { id: 'dancing', name: '有氧舞蹈 / Zumba', met: 6.5 }
+        ];
+
+        // 台灣常見三餐食物熱量資料庫 (依據衛福部食藥署食品營養成分資料庫校準)
+        const MEAL_FOOD_OPTIONS = {
+            breakfast: [
+                {
+                    group: "🥚 蛋類與優質蛋白",
+                    items: [
+                        { name: "水煮蛋(1顆)", cal: 72 },
+                        { name: "茶葉蛋(1顆)", cal: 75 },
+                        { name: "荷包蛋/煎蛋(1顆)", cal: 120 },
+                        { name: "鮪魚水煮罐頭(半罐約80g)", cal: 85 },
+                        { name: "無糖希臘優格(150g)", cal: 115 },
+                        { name: "超商舒肥雞胸肉(1份約110g)", cal: 145 }
+                    ]
+                },
+                {
+                    group: "🥪 台灣早餐店常見",
+                    items: [
+                        { name: "原味蛋餅", cal: 265 },
+                        { name: "鮪魚蛋餅", cal: 335 },
+                        { name: "起司蛋餅", cal: 345 },
+                        { name: "蔬菜蛋餅", cal: 275 },
+                        { name: "全麥吐司夾蛋(不抹美乃滋)", cal: 295 },
+                        { name: "里肌肉蛋吐司", cal: 385 },
+                        { name: "總匯三明治", cal: 520 },
+                        { name: "蘿蔔糕(2片約160g)", cal: 240 },
+                        { name: "燒餅夾蛋", cal: 390 },
+                        { name: "鮮肉包(1顆約100g)", cal: 270 },
+                        { name: "小籠包(5顆)", cal: 325 }
+                    ]
+                },
+                {
+                    group: "🍠 原型主食與燕麥",
+                    items: [
+                        { name: "烤地瓜(中型150g)", cal: 185 },
+                        { name: "全麥吐司(1片約45g)", cal: 115 },
+                        { name: "原味大燕麥片(40g)", cal: 150 },
+                        { name: "超商御飯糰-鮪魚/鮭魚", cal: 215 },
+                        { name: "香蕉(中型1根約120g)", cal: 105 },
+                        { name: "蘋果/芭樂(1顆約150g)", cal: 75 }
+                    ]
+                },
+                {
+                    group: "☕ 早餐飲品",
+                    items: [
+                        { name: "無糖豆漿(400ml)", cal: 140 },
+                        { name: "無糖黑豆漿(400ml)", cal: 145 },
+                        { name: "低脂鮮奶(240ml)", cal: 110 },
+                        { name: "無糖拿鐵(中杯360ml)", cal: 135 },
+                        { name: "黑咖啡/無糖美式", cal: 5 }
+                    ]
+                }
+            ],
+            lunch: [
+                {
+                    group: "🍱 健康餐盒與便當",
+                    items: [
+                        { name: "健康餐盒(舒肥雞胸+糙米半碗+3菜)", cal: 520 },
+                        { name: "健康餐盒(香煎鮭魚+糙米半碗+3菜)", cal: 610 },
+                        { name: "滷雞腿便當(飯減半/去皮)", cal: 650 },
+                        { name: "炸雞腿便當(完整一份)", cal: 890 },
+                        { name: "炸排骨便當(完整一份)", cal: 830 },
+                        { name: "燒臘三寶飯(少淋醬汁)", cal: 800 },
+                        { name: "雞肉飯便當(半碗飯+青菜)", cal: 540 }
+                    ]
+                },
+                {
+                    group: "🍜 麵食、水餃與小吃",
+                    items: [
+                        { name: "高麗菜/韭菜水餃(10顆)", cal: 550 },
+                        { name: "陽春湯麵(不喝完湯)", cal: 380 },
+                        { name: "牛肉麵(紅燒/半筋半肉)", cal: 690 },
+                        { name: "日式蕎麥涼麵+溫泉蛋", cal: 430 },
+                        { name: "鍋燒意麵(不喝湯)", cal: 560 },
+                        { name: "義大利麵-清炒雞肉/海鮮", cal: 580 },
+                        { name: "義大利麵-白醬培根", cal: 820 }
+                    ]
+                },
+                {
+                    group: "🍗 單點主菜與配菜",
+                    items: [
+                        { name: "超商舒肥雞胸肉(1份約110g)", cal: 145 },
+                        { name: "滷牛腱(1份約100g)", cal: 165 },
+                        { name: "薄鹽烤鯖魚(半尾約100g)", cal: 260 },
+                        { name: "糙米飯/五穀飯(半碗100g)", cal: 140 },
+                        { name: "白飯(一碗200g)", cal: 280 },
+                        { name: "炒青菜(1份約120g)", cal: 85 },
+                        { name: "燙青菜(1份約120g，少油)", cal: 45 }
+                    ]
+                },
+                {
+                    group: "🏪 超商輕食與飲品",
+                    items: [
+                        { name: "超商雞胸肉生菜沙拉(和風醬)", cal: 240 },
+                        { name: "超商健身G肉餐盒", cal: 485 },
+                        { name: "無糖綠茶/烏龍茶", cal: 0 },
+                        { name: "無糖手搖純茶", cal: 0 }
+                    ]
+                }
+            ],
+            dinner: [
+                {
+                    group: "🍲 小火鍋與滷味",
+                    items: [
+                        { name: "昆布小火鍋(低脂肉+大量菜/無加工料)", cal: 500 },
+                        { name: "番茄海鮮鍋(魚片蛤蜊+菜盤)", cal: 460 },
+                        { name: "麻辣鍋(肉片+蔬菜/不喝湯)", cal: 760 },
+                        { name: "加熱滷味(青菜2份+豆干+去皮雞腿肉)", cal: 420 },
+                        { name: "加熱滷味(王子麵+甜不辣+貢丸+肉片)", cal: 690 },
+                        { name: "鹹水雞(雞胸+花椰菜+玉米筍+木耳)", cal: 360 }
+                    ]
+                },
+                {
+                    group: "🐟 居家與自助餐單點",
+                    items: [
+                        { name: "香煎鮭魚排(150g)", cal: 295 },
+                        { name: "清蒸鱸魚/鯛魚片(150g)", cal: 165 },
+                        { name: "去皮滷雞腿(1支約130g)", cal: 225 },
+                        { name: "蒜泥白肉-低脂豬里肌(120g)", cal: 215 },
+                        { name: "傳統板豆腐(半盒150g)", cal: 130 },
+                        { name: "蒸蛋/茶碗蒸(1碗)", cal: 95 },
+                        { name: "毛豆仁(1小碗100g)", cal: 120 },
+                        { name: "燙青菜兩大份(橄欖油拌)", cal: 90 },
+                        { name: "炒時蔬(1份)", cal: 85 }
+                    ]
+                },
+                {
+                    group: "🥗 輕食與晚間澱粉",
+                    items: [
+                        { name: "糙米飯/紫米飯(半碗100g)", cal: 140 },
+                        { name: "蒸地瓜/南瓜(120g)", cal: 145 },
+                        { name: "冬粉(1把40g)", cal: 140 },
+                        { name: "和風海鮮生菜沙拉", cal: 220 },
+                        { name: "味噌豆腐海帶湯", cal: 75 },
+                        { name: "無糖豆漿(300ml)", cal: 105 }
+                    ]
+                }
+            ]
+        };
+
+        // 手動輸入食物名稱時的關鍵字熱量推算庫
+        const FOOD_KEYWORD_DB = [
+            { keys: ["炸雞腿便當", "炸排骨便當", "雞排便當"], cal: 880 },
+            { keys: ["滷雞腿便當", "雞腿便當", "排骨便當", "三寶飯", "燒臘飯", "控肉飯", "爌肉飯"], cal: 780 },
+            { keys: ["雞肉飯便當", "火雞肉飯"], cal: 540 },
+            { keys: ["健康餐盒", "水煮餐", "舒肥便當", "低卡餐盒"], cal: 520 },
+            { keys: ["牛肉麵"], cal: 690 },
+            { keys: ["鍋燒意麵"], cal: 560 },
+            { keys: ["義大利麵"], cal: 620 },
+            { keys: ["陽春麵", "乾麵", "湯麵", "麻醬麵", "肉燥麵", "米粉湯", "冬粉湯"], cal: 400 },
+            { keys: ["蕎麥麵", "涼麵"], cal: 430 },
+            { keys: ["水餃", "煎餃"], cal: 55, defaultQty: 10 },
+            { keys: ["小籠包", "鍋貼"], cal: 65, defaultQty: 8 },
+            { keys: ["總匯三明治"], cal: 520 },
+            { keys: ["三明治"], cal: 320 },
+            { keys: ["起司蛋餅", "鮪魚蛋餅", "培根蛋餅", "玉米蛋餅", "薯餅蛋餅"], cal: 340 },
+            { keys: ["原味蛋餅", "蔬菜蛋餅", "蛋餅"], cal: 265 },
+            { keys: ["蘿蔔糕"], cal: 240 },
+            { keys: ["鐵板麵"], cal: 550 },
+            { keys: ["漢堡", "卡啦雞腿堡", "牛肉堡"], cal: 480 },
+            { keys: ["吐司夾蛋", "蛋吐司", "肉蛋吐司", "里肌吐司"], cal: 310 },
+            { keys: ["全麥吐司", "吐司", "厚片"], cal: 115 },
+            { keys: ["御飯糰", "飯糰"], cal: 225 },
+            { keys: ["鮮肉包", "肉包", "菜包", "包子"], cal: 265 },
+            { keys: ["饅頭"], cal: 240 },
+            { keys: ["燒餅", "油條"], cal: 320 },
+            { keys: ["燕麥片", "燕麥", "麥片"], cal: 150 },
+            { keys: ["地瓜", "番薯", "烤地瓜", "蒸地瓜"], cal: 180 },
+            { keys: ["南瓜", "山藥", "芋頭"], cal: 130 },
+            { keys: ["玉米", "玉米筍"], cal: 110 },
+            { keys: ["糙米飯", "五穀飯", "紫米飯", "藜麥飯"], cal: 140 },
+            { keys: ["白飯", "米飯", "滷肉飯", "魯肉飯"], cal: 280 },
+            { keys: ["冬粉"], cal: 140 },
+            { keys: ["小火鍋", "火鍋", "涮涮鍋", "臭臭鍋"], cal: 520 },
+            { keys: ["滷味", "鹹水雞", "鹽水雞"], cal: 400 },
+            { keys: ["舒肥雞胸", "雞胸肉", "雞胸"], cal: 145 },
+            { keys: ["去皮雞腿", "滷雞腿", "烤雞腿"], cal: 225 },
+            { keys: ["炸雞排", "雞排", "鹹酥雞", "鹽酥雞", "炸雞"], cal: 630 },
+            { keys: ["鮭魚"], cal: 285 },
+            { keys: ["鯖魚"], cal: 260 },
+            { keys: ["鱸魚", "鯛魚", "魚排", "清蒸魚", "魚片", "魚"], cal: 170 },
+            { keys: ["牛排", "牛腱", "牛肉"], cal: 210 },
+            { keys: ["豬里肌", "瘦肉", "豬排", "豬肉", "排骨"], cal: 215 },
+            { keys: ["蝦仁", "海鮮", "花枝", "透抽", "蛤蜊"], cal: 135 },
+            { keys: ["荷包蛋", "煎蛋", "炒蛋"], cal: 120 },
+            { keys: ["水煮蛋", "茶葉蛋", "滷蛋", "蒸蛋", "茶碗蒸", "蛋"], cal: 75 },
+            { keys: ["板豆腐", "嫩豆腐", "雞蛋豆腐", "豆腐"], cal: 125 },
+            { keys: ["豆干", "豆皮"], cal: 100 },
+            { keys: ["毛豆"], cal: 120 },
+            { keys: ["希臘優格", "優格", "優酪乳"], cal: 120 },
+            { keys: ["燙青菜", "炒青菜", "青菜", "花椰菜", "高麗菜", "菠菜", "地瓜葉", "空心菜", "時蔬", "生菜沙拉", "沙拉", "蔬菜"], cal: 65 },
+            { keys: ["味噌湯", "紫菜湯", "蛋花湯", "蘿蔔湯", "貢丸湯", "清湯", "湯"], cal: 65 },
+            { keys: ["無糖豆漿", "黑豆漿", "豆漿"], cal: 140 },
+            { keys: ["低脂鮮奶", "鮮奶", "牛奶"], cal: 115 },
+            { keys: ["無糖拿鐵", "拿鐵"], cal: 135 },
+            { keys: ["美式", "黑咖啡", "無糖綠茶", "無糖紅茶", "烏龍茶", "無糖茶", "綠茶", "紅茶", "水"], cal: 5 },
+            { keys: ["珍珠奶茶", "珍奶", "波霸奶茶"], cal: 650 },
+            { keys: ["手搖飲", "奶茶", "鮮奶茶"], cal: 420 },
+            { keys: ["香蕉"], cal: 105 },
+            { keys: ["蘋果", "芭樂", "奇異果", "番茄", "橘子", "柳丁", "火龍果", "木瓜", "西瓜", "水果"], cal: 75 },
+            { keys: ["堅果", "核桃", "杏仁"], cal: 90 },
+            { keys: ["蛋糕", "麵包", "可頌", "菠蘿麵包", "紅豆麵包"], cal: 320 },
+            { keys: ["餅乾", "洋芋片", "巧克力"], cal: 250 }
+        ];
+
+        // 專業營養師 7 日循環減脂食譜庫
+        const DIETITIAN_7DAY_MENUS = [
+            {
+                breakfast: {
+                    low: "無糖希臘優格 150g + 藍莓/奇異果 1 份 + 原味綜合堅果 10g + 水煮蛋 1 顆",
+                    mid: "無糖豆漿 400ml + 全麥吐司 1 片夾水煮蛋 1 顆與小黃瓜 + 奇異果 1 顆",
+                    high: "無糖豆漿 400ml + 全麥吐司 2 片夾水煮蛋 2 顆與生菜 + 奇異果 1 顆 + 堅果 10g"
+                },
+                lunch: {
+                    low: "香煎薄鹽鯖魚 100g + 糙米飯半碗(100g) + 蒜炒青江菜與鴻喜菇 200g + 涼拌海帶芽",
+                    mid: "香煎薄鹽鯖魚 130g + 糙米飯 0.7 碗(140g) + 蒜炒青江菜與鴻喜菇 250g + 涼拌木耳",
+                    high: "香煎薄鹽鯖魚 150g + 糙米飯 1 碗(200g) + 蒜炒青江菜與鴻喜菇 250g + 滷板豆腐 1 塊"
+                },
+                dinner: {
+                    low: "番茄蔬菜豆腐海鮮鍋（蝦仁 6 隻、鯛魚片 80g、板豆腐半塊、高麗菜與金針菇 250g，無加工火鍋料）",
+                    mid: "番茄蔬菜豆腐海鮮鍋（蝦仁 8 隻、鯛魚片 100g、板豆腐半塊、大量時蔬 250g + 寛冬粉半把）",
+                    high: "番茄蔬菜豆腐海鮮鍋（蝦仁 10 隻、鯛魚片 120g、板豆腐 1 塊、大量時蔬 300g + 蒸地瓜 120g）"
+                }
+            },
+            {
+                breakfast: {
+                    low: "無糖黑豆漿 350ml + 蒸烤地瓜 100g + 茶葉蛋 1 顆 + 聖女小番茄 10 顆",
+                    mid: "無糖黑豆漿 400ml + 蒸烤地瓜 140g + 茶葉蛋 2 顆 + 聖女小番茄 12 顆",
+                    high: "無糖黑豆漿 450ml + 蒸烤地瓜 180g + 茶葉蛋 2 顆 + 無糖優格 100g + 堅果 10g"
+                },
+                lunch: {
+                    low: "迷迭香舒肥雞胸肉 130g + 五穀紫米飯半碗(100g) + 橄欖油燙綠花椰菜與彩椒 220g + 滷豆干 2 片",
+                    mid: "迷迭香舒肥雞胸肉 160g + 五穀紫米飯 0.7 碗(140g) + 橄欖油燙綠花椰菜與彩椒 250g + 滷蛋 1 顆",
+                    high: "迷迭香舒肥雞胸肉 200g + 五穀紫米飯 1 碗(200g) + 橄欖油燙綠花椰菜與彩椒 280g + 滷豆干 3 片"
+                },
+                dinner: {
+                    low: "清蒸蔥油鱸魚排 130g + 蒸南瓜 100g + 清炒菠菜與黑木耳 220g + 味噌海帶芽豆腐湯",
+                    mid: "清蒸蔥油鱸魚排 160g + 蒸南瓜 140g + 清炒菠菜與黑木耳 250g + 味噌海帶芽豆腐湯",
+                    high: "清蒸蔥油鱸魚排 180g + 糙米飯 0.7 碗(140g) + 清炒菠菜與黑木耳 280g + 蒸蛋 1 碗"
+                }
+            },
+            {
+                breakfast: {
+                    low: "低脂鮮奶 240ml + 原味大燕麥片 35g + 水煮蛋 1 顆 + 芭樂半顆(100g)",
+                    mid: "低脂鮮奶 300ml + 原味大燕麥片 45g + 水煮蛋 2 顆 + 芭樂半顆(120g)",
+                    high: "低脂鮮奶 350ml + 原味大燕麥片 60g + 水煮蛋 2 顆 + 芭樂 1 顆 + 核桃 3 顆"
+                },
+                lunch: {
+                    low: "滷牛腱切片 110g + 藜麥白飯半碗(100g) + 蒜炒地瓜葉 150g + 涼拌秋葵與毛豆仁 80g",
+                    mid: "滷牛腱切片 140g + 藜麥白飯 0.7 碗(140g) + 蒜炒地瓜葉 180g + 涼拌秋葵與毛豆仁 100g",
+                    high: "滷牛腱切片 170g + 藜麥白飯 1 碗(200g) + 蒜炒地瓜葉 200g + 涼拌秋葵與毛豆仁 120g"
+                },
+                dinner: {
+                    low: "嫩煎雞腿排(去皮) 120g + 烤杏鮑菇與四季豆 220g + 紫菜蛋花湯（晚間減碳水，以高纖蔬菜增加飽足）",
+                    mid: "嫩煎雞腿排(去皮) 150g + 烤地瓜 100g + 烤杏鮑菇與四季豆 250g + 紫菜蛋花湯",
+                    high: "嫩煎雞腿排(去皮) 180g + 糙米飯 0.7 碗(140g) + 烤杏鮑菇與四季豆 280g + 涼拌嫩豆腐"
+                }
+            },
+            {
+                breakfast: {
+                    low: "無糖拿鐵(中杯) + 全麥鮪魚蔬菜蛋吐司(不抹美乃滋，鮪魚以水煮罐頭瀝乾)",
+                    mid: "無糖拿鐵(大杯) + 全麥鮪魚蔬菜蛋吐司 + 蘋果半顆(100g)",
+                    high: "無糖拿鐵(大杯) + 全麥鮪魚雙蛋蔬菜三明治 + 蘋果 1 顆"
+                },
+                lunch: {
+                    low: "香煎挪威鮭魚排 110g + 糙米飯半碗(100g) + 清炒高麗菜與紅蘿蔔絲 220g + 玉米筍 5 根",
+                    mid: "香煎挪威鮭魚排 130g + 糙米飯 0.7 碗(140g) + 清炒高麗菜與紅蘿蔔絲 250g + 玉米筍 6 根",
+                    high: "香煎挪威鮭魚排 160g + 糙米飯 1 碗(200g) + 清炒高麗菜與紅蘿蔔絲 280g + 茶碗蒸 1 碗"
+                },
+                dinner: {
+                    low: "和風溫沙拉（舒肥雞胸 110g、水煮蛋 1 顆、綜合生菜與小番茄 220g、毛豆 50g、和風油醋醬）",
+                    mid: "和風溫沙拉（舒肥雞胸 140g、水煮蛋 1 顆、綜合生菜 220g、蒸南瓜 100g、毛豆 60g）",
+                    high: "和風溫沙拉（舒肥雞胸 170g、水煮蛋 1 顆、綜合生菜 250g、蒸地瓜 140g、毛豆 80g）"
+                }
+            },
+            {
+                breakfast: {
+                    low: "無糖豆漿 400ml + 蔬菜起司蛋餅 1 份（少油煎，不加醬油膏）",
+                    mid: "無糖豆漿 400ml + 鮪魚蛋餅 1 份（少油煎） + 水煮蛋 1 顆",
+                    high: "無糖豆漿 450ml + 里肌肉蛋吐司（去美乃滋） + 奇異果 1 顆"
+                },
+                lunch: {
+                    low: "去皮滷雞腿 1 支(約130g) + 便當白飯半碗(100g) + 自選三樣水炒青菜(瀝乾湯汁) 220g",
+                    mid: "去皮滷雞腿 1 支(約150g) + 便當白飯 0.7 碗(140g) + 自選三樣青菜 250g + 滷板豆腐半塊",
+                    high: "去皮滷雞腿 1 支 + 滷蛋 1 顆 + 便當白飯 1 碗(200g) + 自選三樣青菜 280g"
+                },
+                dinner: {
+                    low: "健康加熱滷味（高麗菜+大陸妹+金針菇共 250g + 傳統板豆腐 1 塊 + 腱子肉 80g，不喝湯不加沙茶）",
+                    mid: "健康加熱滷味（大量青菜菇類 250g + 板豆腐 1 塊 + 腱子肉 100g + 蒸煮麵或冬粉半份）",
+                    high: "健康加熱滷味（大量青菜菇類 280g + 板豆腐 1 塊 + 腱子肉 130g + 烏龍麵 1 份）"
+                }
+            },
+            {
+                breakfast: {
+                    low: "無糖優酪乳 250ml + 烤地瓜 110g + 荷包蛋(少油) 1 顆 + 小黃瓜 1 根",
+                    mid: "無糖優酪乳 300ml + 烤地瓜 150g + 荷包蛋(少油) 2 顆 + 小黃瓜 1 根",
+                    high: "無糖優酪乳 350ml + 烤地瓜 180g + 荷包蛋(少油) 2 顆 + 綜合堅果 12g"
+                },
+                lunch: {
+                    low: "蒜泥白肉（低脂豬里肌切片 120g） + 五穀飯半碗(100g) + 燙空心菜與豆芽菜 220g + 滷海帶",
+                    mid: "蒜泥白肉（低脂豬里肌切片 150g） + 五穀飯 0.7 碗(140g) + 燙空心菜與豆芽菜 250g + 味噌豆腐湯",
+                    high: "蒜泥白肉（低脂豬里肌切片 180g） + 五穀飯 1 碗(200g) + 燙空心菜與豆芽菜 280g + 蒸蛋 1 碗"
+                },
+                dinner: {
+                    low: "三杯杏鮑菇炒雞丁（去皮雞胸 120g + 杏鮑菇 150g，少油少糖） + 燙青江菜 150g + 蛤蜊薑絲湯",
+                    mid: "三杯杏鮑菇炒雞丁（雞胸 150g + 杏鮑菇 150g） + 糙米飯半碗(100g) + 燙青江菜 150g + 蛤蜊薑絲湯",
+                    high: "三杯杏鮑菇炒雞丁（雞胸 180g + 杏鮑菇 150g） + 糙米飯 0.8 碗(160g) + 燙青江菜 180g + 蛤蜊薑絲湯"
+                }
+            },
+            {
+                breakfast: {
+                    low: "無糖黑咖啡/美式 + 全麥吐司 1 片 + 嫩炒滑蛋(2顆蛋+少許鮮奶) + 炒蘑菇與小番茄",
+                    mid: "無糖拿鐵(中杯) + 全麥吐司 1.5 片 + 嫩炒滑蛋(2顆蛋) + 炒蘑菇與小番茄 + 奇異果 1 顆",
+                    high: "無糖拿鐵(大杯) + 全麥吐司 2 片 + 嫩炒滑蛋(2顆蛋) + 舒肥雞胸 60g + 綜合水果 1 份"
+                },
+                lunch: {
+                    low: "日式蕎麥涼麵 1 份 + 溫泉蛋 1 顆 + 鹽烤雞肉串(去皮) 2 串 + 和風冷豆腐 + 燙花椰菜 150g",
+                    mid: "日式蕎麥涼麵 1.2 份 + 溫泉蛋 1 顆 + 鹽烤雞肉串(去皮) 2 串 + 和風冷豆腐 + 燙花椰菜 180g",
+                    high: "日式蕎麥涼麵 1.5 份 + 溫泉蛋 1 顆 + 鹽烤雞肉串(去皮) 3 串 + 和風冷豆腐 + 燙花椰菜 200g"
+                },
+                dinner: {
+                    low: "鯛魚片豆腐鮮蔬煲（鯛魚片 130g、嫩豆腐半盒、大白菜與金針菇 250g、薑絲枸杞調味）",
+                    mid: "鯛魚片豆腐鮮蔬煲（鯛魚片 160g、嫩豆腐半盒、大白菜與金針菇 250g + 蒸山藥 120g）",
+                    high: "鯛魚片豆腐鮮蔬煲（鯛魚片 180g、嫩豆腐 1 盒、大白菜與金針菇 280g + 糙米飯 0.7 碗）"
+                }
+            }
+        ];
+
+        // 初始化應用程式
+        function initApp() {
+            populateMealSelectOptions();
+            populateExerciseOptions();
+            renderAvatarSelectors();
+            lucide.createIcons();
+            updateAppViewMode();
+
+            const passInput = document.getElementById('passcodeInput');
+            if (passInput) {
+                setTimeout(() => passInput.focus(), 100);
+            }
+        }
+
+        // 讀取瀏覽器本機永久保存資料
+        function loadFromLocalBackup() {
+            try {
+                const raw = window.localStorage.getItem(LOCAL_BACKUP_KEY);
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    if (parsed && typeof parsed.users === 'object') {
+                        appState = parsed;
+                    }
+                }
+            } catch (e) {
+                console.warn('讀取本機存檔略過:', e);
+            }
+        }
+
+        // 寫入瀏覽器本機永久保存
+        function persistToLocalBackup() {
+            try {
+                window.localStorage.setItem(LOCAL_BACKUP_KEY, JSON.stringify(appState));
+            } catch (e) {
+                console.warn('寫入本機存檔略過:', e);
+            }
+        }
+
+        // 解鎖後啟動儲存與查詢引擎 (本機永久保存 + 雲端即時同步)
+        async function startDataSyncEngine() {
+            loadFromLocalBackup();
+            updateAppViewMode();
+
+            const modeBadge = document.getElementById('storageModeBadge');
+
+            if (window.cloudSync && window.cloudSync.hasCloudConfig()) {
+                const connected = await window.cloudSync.initAndListen((remoteUsers) => {
+                    if (remoteUsers && Object.keys(remoteUsers).length > 0) {
+                        appState.users = remoteUsers;
+                        persistToLocalBackup();
+                    } else if (Object.keys(appState.users || {}).length > 0) {
+                        Object.entries(appState.users).forEach(([uid, uData]) => {
+                            window.cloudSync.saveUser(uid, uData);
+                        });
+                    }
+                    const userIds = Object.keys(appState.users || {});
+                    if (appState.currentUserId && !appState.users[appState.currentUserId]) {
+                        appState.currentUserId = userIds.length > 0 ? userIds[0] : null;
+                        isHomeViewActive = true;
+                    }
+                    updateAppViewMode();
+                });
+
+                if (modeBadge) {
+                    modeBadge.textContent = connected ? '☁️ 雲端即時同步中' : '💾 本機永久保存中';
+                }
+            } else if (modeBadge) {
+                modeBadge.textContent = '💾 本機永久保存中';
+            }
+        }
+
+        // 匯出所有成員完整備份檔 (JSON)
+        function exportAllDataJson() {
+            const dataStr = JSON.stringify(appState, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `FitTrack_減脂資料備份_${formatDate(new Date())}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast('已匯出完整成員備份檔！');
+        }
+
+        // 匯入還原備份檔 (JSON)
+        function importAllDataJson(event) {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (!imported || typeof imported.users !== 'object') {
+                        showToast('備份檔格式不正確');
+                        return;
+                    }
+                    appState.users = { ...appState.users, ...imported.users };
+                    const ids = Object.keys(appState.users);
+                    if (!appState.currentUserId && ids.length > 0) {
+                        appState.currentUserId = ids[0];
+                    }
+                    persistToLocalBackup();
+                    if (window.cloudSync && window.cloudSync.isReady()) {
+                        Object.entries(imported.users).forEach(([uid, uData]) => {
+                            window.cloudSync.saveUser(uid, uData);
+                        });
+                    }
+                    updateAppViewMode();
+                    showToast(`成功匯入 ${Object.keys(imported.users).length} 位成員資料！`);
+                } catch (err) {
+                    showToast('讀取備份檔失敗，請確認檔案未損毀');
+                }
+                event.target.value = '';
+            };
+            reader.readAsText(file);
+        }
+
+        // 渲染 Q 版 12 生肖頭貼選擇器 (純動物圖案無文字)
+        function renderAvatarSelectors() {
+            const newGrid = document.getElementById('newUserAvatarGrid');
+            const settingsGrid = document.getElementById('settingsAvatarGrid');
+            const currentUser = getCurrentUser();
+            const currentAvatar = currentUser?.avatar || '🐰';
+
+            if (newGrid) {
+                newGrid.innerHTML = ZODIAC_AVATARS.map(item => `
+                    <button type="button" onclick="selectNewUserAvatar('${item.emoji}')"
+                        class="flex items-center justify-center p-2.5 rounded-xl border transition-all cursor-pointer ${
+                            selectedNewUserAvatar === item.emoji
+                                ? 'border-emerald-600 bg-emerald-50 ring-2 ring-emerald-500/20 scale-105'
+                                : 'border-slate-200/80 hover:border-emerald-300 ' + item.bg
+                        }">
+                        <span class="text-2xl leading-none select-none">${item.emoji}</span>
+                    </button>
+                `).join('');
+            }
+
+            if (settingsGrid) {
+                settingsGrid.innerHTML = ZODIAC_AVATARS.map(item => `
+                    <button type="button" onclick="changeCurrentUserAvatar('${item.emoji}')"
+                        class="flex items-center justify-center p-2 rounded-xl border transition-all cursor-pointer ${
+                            currentAvatar === item.emoji
+                                ? 'border-emerald-600 bg-emerald-50 ring-2 ring-emerald-500/20'
+                                : 'border-slate-200/80 hover:border-emerald-300 ' + item.bg
+                        }">
+                        <span class="text-xl leading-none select-none">${item.emoji}</span>
+                    </button>
+                `).join('');
+            }
+        }
+
+        function selectNewUserAvatar(emoji) {
+            selectedNewUserAvatar = emoji;
+            renderAvatarSelectors();
+        }
+
+        function changeCurrentUserAvatar(emoji) {
+            const user = getCurrentUser();
+            if (!user) return;
+            user.avatar = emoji;
+            saveToStorage();
+            renderAvatarSelectors();
+            renderUserSelect();
+            showToast(`已更換頭貼為 ${emoji}`);
+        }
+
+        // 填入運動項目下拉選單
+        function populateExerciseOptions() {
+            const selectEl = document.getElementById('exerciseTypeSelect');
+            if (!selectEl) return;
+            selectEl.innerHTML = '<option value="">選擇運動項目...</option>';
+            EXERCISE_OPTIONS.forEach(ex => {
+                const opt = document.createElement('option');
+                opt.value = ex.id;
+                opt.textContent = ex.name;
+                selectEl.appendChild(opt);
+            });
+        }
+
+        // 動態填入三餐豐富下拉選單 (依分類分組)
+        function populateMealSelectOptions() {
+            ['breakfast', 'lunch', 'dinner'].forEach(mealType => {
+                const selectEl = document.getElementById(`quickSelect${capitalize(mealType)}`);
+                if (!selectEl) return;
+
+                const mealLabel = mealType === 'breakfast' ? '早餐' : (mealType === 'lunch' ? '午餐' : '晚餐');
+                selectEl.innerHTML = `<option value="">⚡ 點選快速加入${mealLabel}品項 (可多次加入)...</option>`;
+
+                MEAL_FOOD_OPTIONS[mealType].forEach(groupObj => {
+                    const optgroup = document.createElement('optgroup');
+                    optgroup.label = groupObj.group;
+                    groupObj.items.forEach(item => {
+                        const opt = document.createElement('option');
+                        opt.value = `${item.name}|${item.cal}`;
+                        opt.textContent = `${item.name} (+${item.cal} kcal)`;
+                        optgroup.appendChild(opt);
+                    });
+                    selectEl.appendChild(optgroup);
+                });
+            });
+        }
+
+        // 返回首頁總覽與成員查詢畫面
+        function showHomeView() {
+            isHomeViewActive = true;
+            updateAppViewMode();
+        }
+
+        // 切換「首頁總覽/成員查詢」或「個人減脂月曆儀表板」
+        function updateAppViewMode() {
+            const userIds = appState.users ? Object.keys(appState.users) : [];
+            const hasUsers = userIds.length > 0;
+
+            const homeView = document.getElementById('emptyWelcomeView');
+            const mainView = document.getElementById('mainDashboardView');
+            const userSelectWrapper = document.getElementById('userSelectWrapper');
+            const settingsToggleBtn = document.getElementById('settingsToggleBtn');
+            const weightHistoryToggleBtn = document.getElementById('weightHistoryToggleBtn');
+            const homeNavBtn = document.getElementById('homeNavBtn');
+            const homeUserDirectory = document.getElementById('homeUserDirectory');
+
+            if (hasUsers) {
+                userSelectWrapper.classList.remove('hidden');
+                if (!appState.currentUserId || !appState.users[appState.currentUserId]) {
+                    appState.currentUserId = userIds[0];
+                }
+                renderUserSelect();
+            } else {
+                userSelectWrapper.classList.add('hidden');
+                isHomeViewActive = true;
+            }
+
+            if (isHomeViewActive || !hasUsers) {
+                homeView.classList.remove('hidden');
+                mainView.classList.add('hidden');
+                settingsToggleBtn.classList.add('hidden');
+                if (weightHistoryToggleBtn) weightHistoryToggleBtn.classList.add('hidden');
+                homeNavBtn.classList.add('hidden');
+
+                if (hasUsers) {
+                    homeUserDirectory.classList.remove('hidden');
+                    renderHomeUserDirectory();
+                } else {
+                    homeUserDirectory.classList.add('hidden');
+                }
+            } else {
+                homeView.classList.add('hidden');
+                mainView.classList.remove('hidden');
+                settingsToggleBtn.classList.remove('hidden');
+                if (weightHistoryToggleBtn) weightHistoryToggleBtn.classList.remove('hidden');
+                homeNavBtn.classList.remove('hidden');
+                const weightPanel = document.getElementById('weightHistoryPanel');
+                if (weightPanel) weightPanel.classList.add('hidden');
+                loadUserToUI();
+            }
+        }
+
+        // 將當前使用者的設定與資料載入至儀表板畫面
+        function loadUserToUI() {
+            const user = getCurrentUser();
+            if (!user) return;
+
+            renderAvatarSelectors();
+
+            const p = user.profile || {};
+            document.getElementById('inputGender').value = p.gender || '';
+            document.getElementById('inputAge').value = p.age || '';
+            document.getElementById('inputHeight').value = p.height || '';
+            document.getElementById('inputWeight').value = p.currentWeight || '';
+            document.getElementById('inputTargetWeight').value = p.targetWeight || '';
+            document.getElementById('inputActivity').value = p.activityLevel || '1.2';
+
+            previewCalculations();
+            updateDashboardCards();
+            renderCalendar();
+            loadSelectedDateDetails();
+            renderMonthlyWeightTable();
+        }
+
+        // 渲染首頁「已建立成員查詢」卡片列表 (包含今日飲食維護與運動消耗統計)
+        function renderHomeUserDirectory() {
+            const grid = document.getElementById('homeUserCardsGrid');
+            const searchInput = document.getElementById('homeUserSearchInput');
+            if (!grid) return;
+
+            const keyword = (searchInput ? searchInput.value : '').trim().toLowerCase();
+            const todayStr = formatDate(new Date());
+            const currentMonthPrefix = todayStr.slice(0, 7);
+
+            const entries = Object.entries(appState.users || {}).filter(([id, u]) => {
+                return !keyword || (u.name && u.name.toLowerCase().includes(keyword));
+            });
+
+            grid.innerHTML = '';
+
+            if (entries.length === 0) {
+                grid.innerHTML = `<div class="col-span-full text-center py-6 text-xs text-slate-400">找不到符合「${keyword}」的成員</div>`;
+                return;
+            }
+
+            entries.forEach(([id, user]) => {
+                const m = calculateMetrics(user.profile);
+                const todayLog = user.logs ? user.logs[todayStr] : null;
+                const todaySummary = calculateLogDaySummary(todayLog);
+                const netCal = todaySummary.netCalories;
+                const targetCal = user.dailyPlan ? user.dailyPlan.targetCalories : 0;
+                const todayRatio = (todaySummary.hasAnyRecord && targetCal > 0) ? Math.max(0, Math.round((netCal / targetCal) * 100)) : 0;
+                const avatar = user.avatar || '🐰';
+
+                let monthExerciseDays = 0;
+                if (user.logs) {
+                    Object.entries(user.logs).forEach(([dateKey, logObj]) => {
+                        if (dateKey.startsWith(currentMonthPrefix)) {
+                            const s = calculateLogDaySummary(logObj);
+                            if (s.exerciseCalories > 0) {
+                                monthExerciseDays++;
+                            }
+                        }
+                    });
+                }
+
+                const card = document.createElement('div');
+                card.onclick = () => switchUser(id);
+                card.className = 'p-4 rounded-xl border border-slate-200 hover:border-emerald-400 bg-slate-50/50 hover:bg-emerald-50/30 transition-all cursor-pointer flex flex-col justify-between gap-3 group';
+
+                card.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2.5">
+                            <div class="w-10 h-10 rounded-full bg-emerald-50 border border-emerald-200 text-2xl flex items-center justify-center shadow-xs select-none">
+                                ${avatar}
+                            </div>
+                            <div>
+                                <div class="font-bold text-sm text-slate-800 group-hover:text-emerald-700 transition-colors">${user.name}</div>
+                                <div class="text-[11px] text-slate-400">
+                                    ${m ? `目前 ${user.profile.currentWeight}kg → 目標 ${user.profile.targetWeight}kg` : '尚未完成身體數值設定'}
+                                </div>
+                            </div>
+                        </div>
+                        <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400 group-hover:text-emerald-600 group-hover:translate-x-0.5 transition-all"></i>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200/60 text-[11px]">
+                        <div class="bg-white/80 px-2.5 py-1.5 rounded-lg border border-slate-200/60">
+                            <div class="text-slate-400">今日飲食維護</div>
+                            <div class="font-bold text-slate-700 mt-0.5">
+                                ${todaySummary.loggedMealsCount > 0 ? `已記 ${todaySummary.loggedMealsCount}/3 餐 (${todaySummary.foodCalories} kcal)` : '今日尚未維護'}
+                            </div>
+                        </div>
+                        <div class="bg-sky-50/60 px-2.5 py-1.5 rounded-lg border border-sky-200/60">
+                            <div class="text-sky-600/80">運動執行狀況</div>
+                            <div class="font-bold text-sky-700 mt-0.5">
+                                ${todaySummary.exerciseCalories > 0 ? `今日 -${todaySummary.exerciseCalories} kcal` : `本月累積 ${monthExerciseDays} 天`}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pt-1 flex items-center justify-between text-xs">
+                        <span class="text-slate-500">
+                            ${m ? `預算 <strong class="text-slate-700">${targetCal}</strong> kcal` : '點擊開始設定'}
+                        </span>
+                        <span class="px-2 py-0.5 rounded-full text-[11px] font-semibold ${
+                            !m ? 'bg-amber-100 text-amber-700' :
+                            !todaySummary.hasAnyRecord ? 'bg-slate-200/70 text-slate-600' :
+                            (todayRatio >= 85 && todayRatio <= 105) ? 'bg-emerald-100 text-emerald-700' :
+                            todayRatio < 85 ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'
+                        }">
+                            ${!m ? '待設定' : !todaySummary.hasAnyRecord ? '今日未紀錄' : `淨攝取 Ratio ${todayRatio}%`}
+                        </span>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+            lucide.createIcons();
+        }
+
+        // 即時同步儲存至本機永久保存與雲端資料庫
+        function saveToStorage(targetUserId) {
+            persistToLocalBackup();
+            const uid = targetUserId || appState.currentUserId;
+            if (uid && appState.users[uid] && window.cloudSync && window.cloudSync.isReady()) {
+                window.cloudSync.saveUser(uid, appState.users[uid]);
+            }
+        }
+
+        function getCurrentUser() {
+            return appState.users[appState.currentUserId];
+        }
+
+        // ==========================================
+        // 2. 核心營養與熱量計算邏輯
+        // ==========================================
+        function calculateMetrics(profile) {
+            if (!profile) return null;
+
+            const height = parseFloat(profile.height);
+            const currentWeight = parseFloat(profile.currentWeight);
+            const age = parseFloat(profile.age);
+            const gender = profile.gender;
+            const activity = parseFloat(profile.activityLevel) || 1.2;
+
+            if (!height || height <= 0 || !currentWeight || currentWeight <= 0) {
+                return null;
+            }
+
+            const heightM = height / 100;
+            const currentBmi = +(currentWeight / (heightM * heightM)).toFixed(1);
+            const idealWeight = +(22 * heightM * heightM).toFixed(1);
+
+            const rawTargetWeight = parseFloat(profile.targetWeight);
+            const targetWeight = (rawTargetWeight && rawTargetWeight > 0) ? rawTargetWeight : idealWeight;
+            const targetBmi = +(targetWeight / (heightM * heightM)).toFixed(1);
+
+            const validAge = (age && age > 0) ? age : 30;
+            const validGender = (gender === 'male' || gender === 'female') ? gender : 'female';
+            let bmr = (10 * currentWeight) + (6.25 * height) - (5 * validAge);
+            bmr += (validGender === 'male') ? 5 : -161;
+
+            const tdee = Math.round(bmr * activity);
+
+            const minSafeCal = (validGender === 'male') ? 1500 : 1200;
+            let targetCalories = tdee - 400;
+            if (targetCalories < minSafeCal) targetCalories = minSafeCal;
+            if (targetCalories > tdee) targetCalories = Math.round(tdee * 0.9);
+            targetCalories = Math.round(targetCalories / 10) * 10;
+
+            const breakfastCal = Math.round((targetCalories * 0.25) / 10) * 10;
+            const lunchCal = Math.round((targetCalories * 0.40) / 10) * 10;
+            const dinnerCal = targetCalories - breakfastCal - lunchCal;
+
+            const tier = targetCalories <= 1450 ? 'low' : (targetCalories <= 1850 ? 'mid' : 'high');
+
+            return {
+                currentBmi,
+                idealWeight,
+                targetWeight,
+                targetBmi,
+                tdee,
+                targetCalories,
+                tier,
+                meals: {
+                    breakfast: { calories: breakfastCal },
+                    lunch: { calories: lunchCal },
+                    dinner: { calories: dinnerCal }
+                }
+            };
+        }
+
+        function getDietitianMenuForDate(dateStr, tier) {
+            const parts = dateStr.split('-');
+            const dateObj = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+            const dayOfWeek = dateObj.getDay();
+            const dayPlan = DIETITIAN_7DAY_MENUS[dayOfWeek] || DIETITIAN_7DAY_MENUS[1];
+            const levelKey = tier || 'mid';
+
+            return {
+                breakfast: dayPlan.breakfast[levelKey],
+                lunch: dayPlan.lunch[levelKey],
+                dinner: dayPlan.dinner[levelKey]
+            };
+        }
+
+        // ==========================================
+        // 3. 多使用者切換與新增管理
+        // ==========================================
+        function renderUserSelect() {
+            const select = document.getElementById('userSelect');
+            const headerAvatar = document.getElementById('headerUserAvatar');
+            select.innerHTML = '';
+            Object.entries(appState.users).forEach(([id, user]) => {
+                const option = document.createElement('option');
+                option.value = id;
+                const av = user.avatar || '🐰';
+                option.textContent = `${av} ${user.name}`;
+                if (id === appState.currentUserId) {
+                    option.selected = true;
+                    if (headerAvatar) headerAvatar.textContent = av;
+                }
+                select.appendChild(option);
+            });
+        }
+
+        function switchUser(userId) {
+            appState.currentUserId = userId;
+            isHomeViewActive = false;
+            saveToStorage();
+            updateAppViewMode();
+            showToast(`已切換至「${appState.users[userId].name}」`);
+        }
+
+        function openNewUserModal() {
+            document.getElementById('newUserNameInput').value = '';
+            selectedNewUserAvatar = '🐰';
+            renderAvatarSelectors();
+            document.getElementById('newUserModal').classList.remove('hidden');
+            setTimeout(() => document.getElementById('newUserNameInput').focus(), 50);
+        }
+
+        function closeNewUserModal() {
+            document.getElementById('newUserModal').classList.add('hidden');
+        }
+
+        function createNewUser() {
+            const nameInput = document.getElementById('newUserNameInput');
+            const name = nameInput.value.trim();
+            if (!name) {
+                nameInput.focus();
+                return;
+            }
+
+            const newId = 'user_' + Date.now();
+            appState.users[newId] = {
+                name: name,
+                avatar: selectedNewUserAvatar || '🐰',
+                profile: {
+                    gender: '',
+                    age: '',
+                    height: '',
+                    currentWeight: '',
+                    targetWeight: '',
+                    activityLevel: '1.2'
+                },
+                dailyPlan: null,
+                logs: {}
+            };
+
+            appState.currentUserId = newId;
+            isHomeViewActive = false;
+            saveToStorage();
+
+            closeNewUserModal();
+            updateAppViewMode();
+
+            document.getElementById('settingsPanel').classList.remove('hidden');
+            showToast(`已建立 ${selectedNewUserAvatar}「${name}」，請輸入身體數值`);
+        }
+
+        function deleteCurrentUser() {
+            const deletedId = appState.currentUserId;
+            const currentName = appState.users[deletedId].name;
+            delete appState.users[deletedId];
+            const remainingIds = Object.keys(appState.users);
+            appState.currentUserId = remainingIds.length > 0 ? remainingIds[0] : null;
+            isHomeViewActive = true;
+
+            persistToLocalBackup();
+            if (window.cloudSync && window.cloudSync.isReady() && deletedId) {
+                window.cloudSync.deleteUser(deletedId);
+            }
+
+            updateAppViewMode();
+            showToast(`已刪除「${currentName}」`);
+        }
+
+        // ==========================================
+        // 4. 設定面板與儀表板渲染
+        // ==========================================
+        function toggleSettingsPanel() {
+            const panel = document.getElementById('settingsPanel');
+            panel.classList.toggle('hidden');
+        }
+
+        function toggleWeightHistoryPanel() {
+            const panel = document.getElementById('weightHistoryPanel');
+            if (!panel) return;
+            const willShow = panel.classList.contains('hidden');
+            if (willShow) {
+                renderMonthlyWeightTable();
+                panel.classList.remove('hidden');
+            } else {
+                panel.classList.add('hidden');
+            }
+        }
+
+        function renderMonthlyWeightTable() {
+            const tbody = document.getElementById('monthlyWeightTableBody');
+            const user = getCurrentUser();
+            if (!tbody || !user) return;
+
+            const heightM = (parseFloat(user.profile?.height) || 0) / 100;
+            const targetW = parseFloat(user.profile?.targetWeight) || 0;
+
+            const monthMap = {};
+            if (user.logs) {
+                Object.entries(user.logs).forEach(([dateStr, logObj]) => {
+                    const w = parseFloat(logObj?.weight);
+                    if (w && w > 0) {
+                        const monthKey = dateStr.slice(0, 7);
+                        const isFirstDay = dateStr.endsWith('-01');
+                        if (!monthMap[monthKey] || isFirstDay || dateStr > monthMap[monthKey].dateStr) {
+                            if (!monthMap[monthKey]?.isFirstDay || isFirstDay) {
+                                monthMap[monthKey] = {
+                                    monthKey,
+                                    dateStr,
+                                    weight: w,
+                                    isFirstDay
+                                };
+                            }
+                        }
+                    }
+                });
+            }
+
+            const sortedMonths = Object.values(monthMap).sort((a, b) => a.monthKey.localeCompare(b.monthKey));
+
+            if (sortedMonths.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="py-8 text-center text-xs text-slate-400">
+                            尚無每月體重紀錄，請點選月曆上的「每月 1 號」輸入體重進行維護！
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            const rowsWithDiff = sortedMonths.map((item, idx) => {
+                const prev = idx > 0 ? sortedMonths[idx - 1] : null;
+                const diffFromPrev = prev ? +(item.weight - prev.weight).toFixed(1) : null;
+                const diffFromTarget = targetW > 0 ? +(item.weight - targetW).toFixed(1) : null;
+                const bmi = heightM > 0 ? +(item.weight / (heightM * heightM)).toFixed(1) : null;
+                return { ...item, diffFromPrev, diffFromTarget, bmi };
+            }).reverse();
+
+            tbody.innerHTML = rowsWithDiff.map(row => {
+                let prevBadge = '<span class="text-slate-400">首筆紀錄</span>';
+                if (row.diffFromPrev !== null) {
+                    if (row.diffFromPrev < 0) {
+                        prevBadge = `<span class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold">${row.diffFromPrev} kg</span>`;
+                    } else if (row.diffFromPrev > 0) {
+                        prevBadge = `<span class="px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 font-semibold">+${row.diffFromPrev} kg</span>`;
+                    } else {
+                        prevBadge = `<span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium">持平 0 kg</span>`;
+                    }
+                }
+
+                let targetText = '--';
+                if (row.diffFromTarget !== null) {
+                    if (row.diffFromTarget <= 0) {
+                        targetText = '<span class="text-emerald-600 font-semibold">已達目標</span>';
+                    } else {
+                        targetText = `<span class="text-slate-600">還差 <strong>${row.diffFromTarget}</strong> kg</span>`;
+                    }
+                }
+
+                return `
+                    <tr class="hover:bg-slate-50/80 transition-colors">
+                        <td class="py-3 px-3 font-bold text-slate-800">${row.monthKey.replace('-', '年 ')}月</td>
+                        <td class="py-3 px-3 text-slate-500">
+                            ${row.dateStr}
+                            ${row.isFirstDay ? '<span class="ml-1 px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 text-[10px] font-semibold">1號定期</span>' : ''}
+                        </td>
+                        <td class="py-3 px-3 font-bold text-indigo-700">${row.weight} kg</td>
+                        <td class="py-3 px-3">${prevBadge}</td>
+                        <td class="py-3 px-3">${targetText}</td>
+                        <td class="py-3 px-3 font-medium text-slate-700">${row.bmi !== null ? row.bmi : '--'}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function previewCalculations() {
+            const heightVal = document.getElementById('inputHeight').value;
+            const weightVal = document.getElementById('inputWeight').value;
+            const targetWeightVal = document.getElementById('inputTargetWeight').value;
+            const ageVal = document.getElementById('inputAge').value;
+            const genderVal = document.getElementById('inputGender').value;
+            const activityVal = document.getElementById('inputActivity').value;
+
+            const heightNum = parseFloat(heightVal);
+            if (heightNum && heightNum > 0) {
+                const heightM = heightNum / 100;
+                const idealW = +(22 * heightM * heightM).toFixed(1);
+                document.getElementById('previewIdealWeight').textContent = `${idealW} kg`;
+            } else {
+                document.getElementById('previewIdealWeight').textContent = '--';
+            }
+
+            const tempProfile = {
+                gender: genderVal,
+                age: ageVal,
+                height: heightVal,
+                currentWeight: weightVal,
+                targetWeight: targetWeightVal,
+                activityLevel: activityVal
+            };
+
+            const metrics = calculateMetrics(tempProfile);
+            if (!metrics) {
+                document.getElementById('previewCurrentBmi').textContent = '--';
+                document.getElementById('previewTargetBmi').textContent = '--';
+                document.getElementById('previewTdee').textContent = '-- kcal';
+                document.getElementById('previewTargetCal').textContent = '-- kcal / 日';
+                return null;
+            }
+
+            document.getElementById('previewCurrentBmi').textContent = metrics.currentBmi;
+            document.getElementById('previewTargetBmi').textContent = metrics.targetBmi;
+            document.getElementById('previewTdee').textContent = `${metrics.tdee} kcal`;
+            document.getElementById('previewTargetCal').textContent = `${metrics.targetCalories} kcal / 日`;
+            return metrics;
+        }
+
+        function applyIdealWeight() {
+            const height = parseFloat(document.getElementById('inputHeight').value);
+            if (!height || height <= 0) {
+                showToast('請先輸入身高，才能計算理想體重');
+                document.getElementById('inputHeight').focus();
+                return;
+            }
+            const idealWeight = +(22 * (height / 100) * (height / 100)).toFixed(1);
+            document.getElementById('inputTargetWeight').value = idealWeight;
+            previewCalculations();
+        }
+
+        function saveUserSettings() {
+            const heightVal = document.getElementById('inputHeight').value;
+            const weightVal = document.getElementById('inputWeight').value;
+
+            if (!heightVal || parseFloat(heightVal) <= 0 || !weightVal || parseFloat(weightVal) <= 0) {
+                showToast('請先輸入有效的「身高」與「目前體重」');
+                return;
+            }
+
+            const user = getCurrentUser();
+            const heightM = parseFloat(heightVal) / 100;
+            const defaultIdealW = +(22 * heightM * heightM).toFixed(1);
+            const rawTargetW = parseFloat(document.getElementById('inputTargetWeight').value);
+            const finalTargetW = (rawTargetW && rawTargetW > 0) ? rawTargetW : defaultIdealW;
+
+            document.getElementById('inputTargetWeight').value = finalTargetW;
+
+            user.profile = {
+                gender: document.getElementById('inputGender').value || 'female',
+                age: parseInt(document.getElementById('inputAge').value, 10) || 30,
+                height: parseFloat(heightVal),
+                currentWeight: parseFloat(weightVal),
+                targetWeight: finalTargetW,
+                activityLevel: parseFloat(document.getElementById('inputActivity').value) || 1.2
+            };
+
+            const metrics = calculateMetrics(user.profile);
+            user.dailyPlan = {
+                targetCalories: metrics.targetCalories,
+                tier: metrics.tier,
+                meals: metrics.meals
+            };
+
+            saveToStorage();
+            updateDashboardCards();
+            renderCalendar();
+            loadSelectedDateDetails();
+            document.getElementById('settingsPanel').classList.add('hidden');
+            showToast('已儲存身體數值並生成營養師菜單！');
+        }
+
+        function updateDashboardCards() {
+            const user = getCurrentUser();
+            const m = calculateMetrics(user.profile);
+
+            if (!m) {
+                document.getElementById('cardCurrentWeight').textContent = '--';
+                document.getElementById('cardCurrentBmi').textContent = '--';
+                const badge = document.getElementById('cardBmiBadge');
+                badge.textContent = '請先設定';
+                badge.className = 'text-[10px] px-1.5 py-0.5 rounded-md font-medium bg-amber-50 text-amber-600';
+
+                document.getElementById('cardTargetWeight').textContent = '--';
+                document.getElementById('cardWeightDiff').textContent = '';
+                document.getElementById('cardTargetBmi').textContent = '--';
+                document.getElementById('cardIdealWeight').textContent = '--';
+
+                document.getElementById('cardDailyCal').textContent = '--';
+                document.getElementById('cardMacroSplit').textContent = '請點擊右上角「目標設定」輸入數值';
+                return;
+            }
+
+            document.getElementById('cardCurrentWeight').textContent = user.profile.currentWeight;
+            document.getElementById('cardCurrentBmi').textContent = m.currentBmi;
+            const badge = document.getElementById('cardBmiBadge');
+            if (m.currentBmi < 18.5) {
+                badge.textContent = '過輕';
+                badge.className = 'text-[10px] px-1.5 py-0.5 rounded-md font-medium bg-sky-50 text-sky-600';
+            } else if (m.currentBmi < 24) {
+                badge.textContent = '標準範圍';
+                badge.className = 'text-[10px] px-1.5 py-0.5 rounded-md font-medium bg-emerald-50 text-emerald-600';
+            } else if (m.currentBmi < 27) {
+                badge.textContent = '過重';
+                badge.className = 'text-[10px] px-1.5 py-0.5 rounded-md font-medium bg-amber-50 text-amber-600';
+            } else {
+                badge.textContent = '肥胖';
+                badge.className = 'text-[10px] px-1.5 py-0.5 rounded-md font-medium bg-rose-50 text-rose-600';
+            }
+
+            document.getElementById('cardTargetWeight').textContent = m.targetWeight;
+            document.getElementById('cardTargetBmi').textContent = m.targetBmi;
+            document.getElementById('cardIdealWeight').textContent = m.idealWeight;
+            const diff = +(m.targetWeight - user.profile.currentWeight).toFixed(1);
+            const diffEl = document.getElementById('cardWeightDiff');
+            if (diff < 0) {
+                diffEl.textContent = `目標 ${diff} kg`;
+                diffEl.className = 'text-xs font-semibold text-emerald-600 ml-auto';
+            } else if (diff > 0) {
+                diffEl.textContent = `目標 +${diff} kg`;
+                diffEl.className = 'text-xs font-semibold text-amber-600 ml-auto';
+            } else {
+                diffEl.textContent = '已達目標';
+                diffEl.className = 'text-xs font-semibold text-emerald-600 ml-auto';
+            }
+
+            const plan = user.dailyPlan || m;
+            document.getElementById('cardDailyCal').textContent = plan.targetCalories;
+            document.getElementById('cardMacroSplit').textContent =
+                `早 ${plan.meals.breakfast.calories} · 午 ${plan.meals.lunch.calories} · 晚 ${plan.meals.dinner.calories} kcal`;
+        }
+
+        // ==========================================
+        // 5. 互動式月曆與 Ratio 視覺化
+        // ==========================================
+        function renderCalendar() {
+            const user = getCurrentUser();
+            if (!user) return;
+
+            const metrics = calculateMetrics(user.profile);
+            const targetCal = (user.dailyPlan && user.dailyPlan.targetCalories) || (metrics ? metrics.targetCalories : 0);
+
+            document.getElementById('calendarMonthTitle').textContent = `${currentViewYear}年 ${currentViewMonth + 1}月`;
+
+            const grid = document.getElementById('calendarGrid');
+            grid.innerHTML = '';
+
+            const firstDayOfMonth = new Date(currentViewYear, currentViewMonth, 1).getDay();
+            const daysInMonth = new Date(currentViewYear, currentViewMonth + 1, 0).getDate();
+
+            let monthTotalRatio = 0;
+            let loggedDaysCount = 0;
+
+            for (let i = 0; i < firstDayOfMonth; i++) {
+                const emptyCell = document.createElement('div');
+                emptyCell.className = 'h-24 sm:h-28 rounded-xl bg-slate-50/50 border border-transparent';
+                grid.appendChild(emptyCell);
+            }
+
+            const todayStr = formatDate(todayObj);
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dateStr = `${currentViewYear}-${String(currentViewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const isFirstOfMonth = (day === 1);
+                const log = user.logs ? user.logs[dateStr] : null;
+                const daySummary = calculateLogDaySummary(log);
+                const totalIntake = daySummary.netCalories;
+                const loggedWeight = daySummary.weight;
+
+                const hasRecord = daySummary.hasAnyRecord;
+                const hasFood = daySummary.loggedMealsCount > 0 || daySummary.foodCalories > 0;
+                const hasExercise = daySummary.exerciseCalories > 0 || daySummary.exerciseCount > 0;
+                const hasWeight = loggedWeight > 0;
+                const ratio = (hasRecord && targetCal > 0) ? Math.max(0, Math.round((totalIntake / targetCal) * 100)) : 0;
+
+                if ((hasFood || hasExercise) && targetCal > 0) {
+                    monthTotalRatio += ratio;
+                    loggedDaysCount++;
+                }
+
+                let barColor = 'bg-slate-200';
+                let ratioTextColor = 'text-slate-400';
+                if ((hasFood || hasExercise) && targetCal > 0) {
+                    if (ratio >= 85 && ratio <= 105) {
+                        barColor = 'bg-emerald-500';
+                        ratioTextColor = 'text-emerald-700 font-bold';
+                    } else if (ratio < 85) {
+                        barColor = 'bg-amber-400';
+                        ratioTextColor = 'text-amber-600 font-semibold';
+                    } else {
+                        barColor = 'bg-rose-500';
+                        ratioTextColor = 'text-rose-600 font-bold';
+                    }
+                } else if (hasFood || hasExercise) {
+                    barColor = 'bg-emerald-500';
+                    ratioTextColor = 'text-slate-600 font-semibold';
+                }
+
+                const isSelected = (dateStr === selectedDateStr);
+                const isToday = (dateStr === todayStr);
+
+                const cell = document.createElement('button');
+                cell.type = 'button';
+                cell.onclick = () => selectDate(dateStr);
+                cell.className = `h-24 sm:h-28 p-1.5 rounded-xl border text-left flex flex-col justify-between overflow-hidden transition-all cursor-pointer relative
+                    ${isSelected ? 'border-emerald-600 ring-2 ring-emerald-500/20 bg-emerald-50/40' : 'border-slate-200/80 bg-white hover:border-emerald-300 hover:bg-slate-50/80'}
+                `;
+
+                let statusBadgesHtml = '';
+                if (hasFood) {
+                    statusBadgesHtml += `<span class="px-1 py-0.2 rounded bg-emerald-100 text-emerald-700 text-[9px] font-semibold leading-tight truncate max-w-full" title="已維護 ${daySummary.loggedMealsCount}/3 餐">已維護${daySummary.loggedMealsCount > 0 ? `(${daySummary.loggedMealsCount}/3)` : ''}</span>`;
+                } else if (isFirstOfMonth && !hasWeight) {
+                    statusBadgesHtml += `<span class="px-1 py-0.2 rounded bg-indigo-100 text-indigo-700 text-[9px] font-semibold leading-tight truncate max-w-full" title="每月1號請維護體重">1號量體重</span>`;
+                } else {
+                    statusBadgesHtml += `<span class="px-1 py-0.2 rounded bg-slate-100 text-slate-400 text-[9px] font-medium leading-tight truncate max-w-full">未維護</span>`;
+                }
+
+                let subTagHtml = '';
+                if (hasWeight) {
+                    subTagHtml += `<span class="px-1 py-0.2 rounded bg-indigo-100 text-indigo-700 text-[9px] font-semibold leading-tight truncate" title="已記錄體重 ${loggedWeight}kg">${loggedWeight}kg</span>`;
+                }
+                if (hasExercise) {
+                    subTagHtml += `<span class="px-1 py-0.2 rounded bg-sky-100 text-sky-700 text-[9px] font-semibold leading-tight truncate" title="運動消耗 -${daySummary.exerciseCalories} kcal">運動</span>`;
+                }
+
+                cell.innerHTML = `
+                    <div class="w-full min-w-0 space-y-0.5">
+                        <div class="w-full flex items-center justify-between gap-1 min-w-0">
+                            <span class="text-xs font-bold shrink-0 ${isToday ? 'w-5 h-5 rounded-full bg-slate-800 text-white flex items-center justify-center text-[10px]' : 'text-slate-700'}">
+                                ${day}
+                            </span>
+                            ${statusBadgesHtml}
+                        </div>
+                        ${subTagHtml ? `<div class="w-full flex items-center justify-end gap-0.5 overflow-hidden">${subTagHtml}</div>` : ''}
+                    </div>
+
+                    <div class="w-full min-w-0 space-y-0.5">
+                        ${(hasFood || hasExercise) ? `
+                            <div class="w-full flex items-baseline justify-between gap-0.5 min-w-0">
+                                <span class="text-[9px] sm:text-[10px] text-slate-600 font-medium truncate">${totalIntake}<span class="text-[8px] text-slate-400">kcal</span></span>
+                                <span class="text-[9px] sm:text-[10px] shrink-0 ${ratioTextColor}">${targetCal > 0 ? ratio + '%' : ''}</span>
+                            </div>
+                            <div class="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
+                                <div class="h-full ${barColor} rounded-full" style="width: ${targetCal > 0 ? Math.min(ratio, 100) : 100}%"></div>
+                            </div>
+                        ` : `
+                            <div class="text-[9px] text-slate-300 text-right leading-none">--</div>
+                        `}
+                    </div>
+                `;
+                grid.appendChild(cell);
+            }
+
+            const avgRatio = loggedDaysCount > 0 ? Math.round(monthTotalRatio / loggedDaysCount) : 0;
+            document.getElementById('cardMonthRatio').textContent = `${avgRatio}%`;
+            document.getElementById('cardMonthLoggedDays').textContent = `本月已紀錄 ${loggedDaysCount} 天`;
+            const barWidth = Math.min(avgRatio, 100);
+            const barEl = document.getElementById('cardMonthRatioBar');
+            barEl.style.width = `${barWidth}%`;
+            barEl.className = `h-full rounded-full transition-all duration-500 ${avgRatio > 105 ? 'bg-rose-500' : (avgRatio >= 85 ? 'bg-emerald-500' : 'bg-amber-400')}`;
+        }
+
+        function changeMonth(delta) {
+            currentViewMonth += delta;
+            if (currentViewMonth < 0) {
+                currentViewMonth = 11;
+                currentViewYear--;
+            } else if (currentViewMonth > 11) {
+                currentViewMonth = 0;
+                currentViewYear++;
+            }
+            renderCalendar();
+        }
+
+        function goToToday() {
+            const now = new Date();
+            currentViewYear = now.getFullYear();
+            currentViewMonth = now.getMonth();
+            selectedDateStr = formatDate(now);
+            renderCalendar();
+            loadSelectedDateDetails();
+        }
+
+        function selectDate(dateStr) {
+            selectedDateStr = dateStr;
+            renderCalendar();
+            loadSelectedDateDetails();
+        }
+
+        // ==========================================
+        // 6. 右側當日飲食多品項明細與運動消耗同步
+        // ==========================================
+        function normalizeMealLog(mealObj) {
+            if (!mealObj) return { items: [], calories: 0 };
+            if (Array.isArray(mealObj.items)) {
+                const total = mealObj.items.reduce((sum, it) => sum + (Number(it.calories) || 0), 0);
+                return { items: mealObj.items, calories: total };
+            }
+            if (mealObj.food || (Number(mealObj.calories) || 0) > 0) {
+                return {
+                    items: [{ name: mealObj.food || '飲食紀錄', calories: Number(mealObj.calories) || 0 }],
+                    calories: Number(mealObj.calories) || 0
+                };
+            }
+            return { items: [], calories: 0 };
+        }
+
+        function calculateLogDaySummary(log) {
+            if (!log) {
+                return {
+                    foodCalories: 0,
+                    exerciseCalories: 0,
+                    netCalories: 0,
+                    loggedMealsCount: 0,
+                    exerciseCount: 0,
+                    weight: 0,
+                    hasAnyRecord: false
+                };
+            }
+            const b = normalizeMealLog(log.breakfast);
+            const l = normalizeMealLog(log.lunch);
+            const d = normalizeMealLog(log.dinner);
+            const foodCalories = b.calories + l.calories + d.calories;
+
+            let loggedMealsCount = 0;
+            if (b.items.length > 0 || b.calories > 0) loggedMealsCount++;
+            if (l.items.length > 0 || l.calories > 0) loggedMealsCount++;
+            if (d.items.length > 0 || d.calories > 0) loggedMealsCount++;
+
+            const exercises = Array.isArray(log.exercises) ? log.exercises : [];
+            const exerciseCalories = exercises.reduce((sum, ex) => sum + (Number(ex.calories) || 0), 0);
+            const weight = parseFloat(log.weight) || 0;
+
+            const hasAnyRecord = (loggedMealsCount > 0 || exercises.length > 0 || foodCalories > 0 || exerciseCalories > 0 || weight > 0);
+            const netCalories = Math.max(0, foodCalories - exerciseCalories);
+
+            return {
+                foodCalories,
+                exerciseCalories,
+                netCalories,
+                loggedMealsCount,
+                exerciseCount: exercises.length,
+                weight,
+                hasAnyRecord
+            };
+        }
+
+        function ensureSelectedDateLog() {
+            const user = getCurrentUser();
+            if (!user.logs) user.logs = {};
+            if (!user.logs[selectedDateStr]) {
+                user.logs[selectedDateStr] = {
+                    breakfast: { items: [], calories: 0 },
+                    lunch: { items: [], calories: 0 },
+                    dinner: { items: [], calories: 0 },
+                    exercises: [],
+                    weight: ''
+                };
+            } else {
+                ['breakfast', 'lunch', 'dinner'].forEach(m => {
+                    user.logs[selectedDateStr][m] = normalizeMealLog(user.logs[selectedDateStr][m]);
+                });
+                if (!Array.isArray(user.logs[selectedDateStr].exercises)) {
+                    user.logs[selectedDateStr].exercises = [];
+                }
+            }
+            return user.logs[selectedDateStr];
+        }
+
+        function loadSelectedDateDetails() {
+            const user = getCurrentUser();
+            if (!user) return;
+
+            const metrics = calculateMetrics(user.profile);
+            const plan = user.dailyPlan || metrics;
+            const rawLog = user.logs ? user.logs[selectedDateStr] : null;
+
+            document.getElementById('selectedDateDisplay').textContent = selectedDateStr;
+            const parts = selectedDateStr.split('-');
+            const dObj = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+            const weekdays = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
+            document.getElementById('selectedDayWeekday').textContent = weekdays[dObj.getDay()];
+
+            const isFirstDay = selectedDateStr.endsWith('-01');
+            const weightCard = document.getElementById('monthlyWeightCard');
+            const weightInput = document.getElementById('dailyWeightInput');
+            const weightBadge = document.getElementById('monthlyWeightSavedBadge');
+            const weightTitle = document.getElementById('monthlyWeightCardTitle');
+            const weightSub = document.getElementById('monthlyWeightCardSub');
+            const savedW = parseFloat(rawLog?.weight) || '';
+
+            if (weightCard && weightInput) {
+                if (isFirstDay || savedW) {
+                    weightCard.classList.remove('hidden');
+                    weightInput.value = savedW;
+                    if (isFirstDay) {
+                        weightTitle.textContent = `${parseInt(parts[1], 10)}月 1 號定期體重維護`;
+                        weightSub.textContent = '每個月 1 號請量測並維護體重，系統將同步更新每月體重表';
+                    } else {
+                        weightTitle.textContent = '當日體重紀錄';
+                        weightSub.textContent = '已記錄當日體重，並同步列入每月體重趨勢表';
+                    }
+                    if (savedW) {
+                        weightBadge.textContent = `已維護 ${savedW} kg`;
+                        weightBadge.classList.remove('hidden');
+                    } else {
+                        weightBadge.classList.add('hidden');
+                    }
+                } else {
+                    weightCard.classList.add('hidden');
+                    weightInput.value = '';
+                }
+            }
+
+            if (plan) {
+                const dailyMenu = getDietitianMenuForDate(selectedDateStr, plan.tier || 'mid');
+                document.getElementById('dayPlanCal').textContent = plan.targetCalories;
+                document.getElementById('planBreakfastCal').textContent = plan.meals.breakfast.calories;
+                document.getElementById('planBreakfastText').textContent = dailyMenu.breakfast;
+
+                document.getElementById('planLunchCal').textContent = plan.meals.lunch.calories;
+                document.getElementById('planLunchText').textContent = dailyMenu.lunch;
+
+                document.getElementById('planDinnerCal').textContent = plan.meals.dinner.calories;
+                document.getElementById('planDinnerText').textContent = dailyMenu.dinner;
+            } else {
+                document.getElementById('dayPlanCal').textContent = '--';
+                document.getElementById('planBreakfastCal').textContent = '--';
+                document.getElementById('planBreakfastText').textContent = '請先點擊上方「目標設定」輸入身高與體重，系統將自動為您排定營養師菜單';
+                document.getElementById('planLunchCal').textContent = '--';
+                document.getElementById('planLunchText').textContent = '請先點擊上方「目標設定」輸入身高與體重，系統將自動為您排定營養師菜單';
+                document.getElementById('planDinnerCal').textContent = '--';
+                document.getElementById('planDinnerText').textContent = '請先點擊上方「目標設定」輸入身高與體重，系統將自動為您排定營養師菜單';
+            }
+
+            ['breakfast', 'lunch', 'dinner'].forEach(mealType => {
+                manualCalOverride[mealType] = false;
+                document.getElementById(`actual${capitalize(mealType)}Food`).value = '';
+                document.getElementById(`actual${capitalize(mealType)}Cal`).value = '';
+                document.getElementById(`autoCalcHint${capitalize(mealType)}`).classList.add('hidden');
+                renderMealItemsList(mealType, rawLog ? normalizeMealLog(rawLog[mealType]) : { items: [], calories: 0 });
+            });
+
+            renderExerciseItemsList(rawLog && Array.isArray(rawLog.exercises) ? rawLog.exercises : []);
+            recalculateExercisePreview();
+
+            updateDayRatioSummary();
+            lucide.createIcons();
+        }
+
+        function renderMealItemsList(mealType, mealLog) {
+            const listEl = document.getElementById(`mealItemsList${capitalize(mealType)}`);
+            const totalEl = document.getElementById(`mealTotal${capitalize(mealType)}Cal`);
+            if (!listEl || !totalEl) return;
+
+            const items = (mealLog && Array.isArray(mealLog.items)) ? mealLog.items : [];
+            const totalCal = items.reduce((s, it) => s + (Number(it.calories) || 0), 0);
+            totalEl.textContent = totalCal;
+
+            if (items.length === 0) {
+                listEl.innerHTML = '';
+                return;
+            }
+
+            listEl.innerHTML = items.map((item, idx) => `
+                <div class="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200/80 text-xs">
+                    <span class="text-slate-700 font-medium truncate">${item.name}</span>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <span class="font-semibold text-emerald-700">+${item.calories} kcal</span>
+                        <button type="button" onclick="removeMealItem('${mealType}', ${idx})" class="text-slate-400 hover:text-rose-500 p-0.5 rounded transition-colors" title="刪除此品項">
+                            <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function normalizeChineseNumbers(str) {
+            return str
+                .replace(/半/g, '0.5')
+                .replace(/兩/g, '2')
+                .replace(/一/g, '1')
+                .replace(/二/g, '2')
+                .replace(/三/g, '3')
+                .replace(/四/g, '4')
+                .replace(/五/g, '5')
+                .replace(/六/g, '6')
+                .replace(/七/g, '7')
+                .replace(/八/g, '8')
+                .replace(/九/g, '9')
+                .replace(/十/g, '10');
+        }
+
+        function estimateCaloriesFromText(text) {
+            if (!text || !text.trim()) return 0;
+
+            const normalizedText = normalizeChineseNumbers(text.toLowerCase());
+            const tokens = normalizedText.split(/[+＋,，、/\s和與]+/).filter(Boolean);
+            let totalEstimated = 0;
+
+            tokens.forEach(token => {
+                let itemTotal = 0;
+
+                let qty = 1;
+                let hasExplicitQty = false;
+                const qtyMatch = token.match(/(\d+(?:\.\d+)?)\s*(?:顆|粒|片|份|碗|杯|條|根|個|塊|串)|[*xX×]\s*(\d+(?:\.\d+)?)|(\d+(?:\.\d+)?)$/);
+                if (qtyMatch) {
+                    qty = parseFloat(qtyMatch[1] || qtyMatch[2] || qtyMatch[3]) || 1;
+                    hasExplicitQty = true;
+                }
+
+                const sortedDb = [...FOOD_KEYWORD_DB].sort((a, b) => {
+                    const maxA = Math.max(...a.keys.map(k => k.length));
+                    const maxB = Math.max(...b.keys.map(k => k.length));
+                    return maxB - maxA;
+                });
+
+                for (const entry of sortedDb) {
+                    const matchedKey = entry.keys.find(k => token.includes(k));
+                    if (matchedKey) {
+                        if (entry.defaultQty && !hasExplicitQty) {
+                            itemTotal += entry.cal * entry.defaultQty;
+                        } else {
+                            itemTotal += Math.round(entry.cal * qty);
+                        }
+                        break;
+                    }
+                }
+                totalEstimated += itemTotal;
+            });
+
+            return totalEstimated;
+        }
+
+        function handleFoodTextInput(mealType) {
+            const foodInput = document.getElementById(`actual${capitalize(mealType)}Food`);
+            const calInput = document.getElementById(`actual${capitalize(mealType)}Cal`);
+            const hintEl = document.getElementById(`autoCalcHint${capitalize(mealType)}`);
+            const text = foodInput.value.trim();
+
+            if (!text) {
+                manualCalOverride[mealType] = false;
+                calInput.value = '';
+                hintEl.classList.add('hidden');
+                return;
+            }
+
+            if (!manualCalOverride[mealType]) {
+                const estimated = estimateCaloriesFromText(text);
+                if (estimated > 0) {
+                    calInput.value = estimated;
+                    hintEl.classList.remove('hidden');
+                } else {
+                    hintEl.classList.add('hidden');
+                }
+            }
+        }
+
+        function handleManualCalInput(mealType) {
+            const hintEl = document.getElementById(`autoCalcHint${capitalize(mealType)}`);
+            manualCalOverride[mealType] = true;
+            hintEl.classList.add('hidden');
+        }
+
+        function addManualFoodItem(mealType) {
+            const foodInput = document.getElementById(`actual${capitalize(mealType)}Food`);
+            const calInput = document.getElementById(`actual${capitalize(mealType)}Cal`);
+            const hintEl = document.getElementById(`autoCalcHint${capitalize(mealType)}`);
+
+            const name = foodInput.value.trim();
+            const cal = Math.max(0, parseInt(calInput.value, 10) || 0);
+
+            if (!name && cal === 0) {
+                foodInput.focus();
+                return;
+            }
+
+            const dayLog = ensureSelectedDateLog();
+            dayLog[mealType].items.push({
+                name: name || '自訂食物',
+                calories: cal
+            });
+            dayLog[mealType].calories = dayLog[mealType].items.reduce((s, i) => s + i.calories, 0);
+
+            foodInput.value = '';
+            calInput.value = '';
+            manualCalOverride[mealType] = false;
+            hintEl.classList.add('hidden');
+
+            saveToStorage();
+            renderMealItemsList(mealType, dayLog[mealType]);
+            updateDayRatioSummary();
+            renderCalendar();
+            showToast(`已新增「${name || '自訂食物'}」`);
+        }
+
+        function quickAddFood(mealType, selectEl) {
+            const val = selectEl.value;
+            if (!val) return;
+
+            const [foodName, calStr] = val.split('|');
+            const addCal = parseInt(calStr, 10) || 0;
+
+            const dayLog = ensureSelectedDateLog();
+            dayLog[mealType].items.push({
+                name: foodName,
+                calories: addCal
+            });
+            dayLog[mealType].calories = dayLog[mealType].items.reduce((s, i) => s + i.calories, 0);
+
+            selectEl.value = '';
+            saveToStorage();
+            renderMealItemsList(mealType, dayLog[mealType]);
+            updateDayRatioSummary();
+            renderCalendar();
+            showToast(`已加入「${foodName}」(+${addCal} kcal)`);
+        }
+
+        function removeMealItem(mealType, index) {
+            const dayLog = ensureSelectedDateLog();
+            dayLog[mealType].items.splice(index, 1);
+            dayLog[mealType].calories = dayLog[mealType].items.reduce((s, i) => s + i.calories, 0);
+
+            cleanupEmptyDayLog();
+            saveToStorage();
+            renderMealItemsList(mealType, dayLog[mealType]);
+            updateDayRatioSummary();
+            renderCalendar();
+        }
+
+        function recalculateExercisePreview() {
+            const exId = document.getElementById('exerciseTypeSelect').value;
+            const durationMins = parseInt(document.getElementById('exerciseDurationSelect').value, 10) || 30;
+            const burnInput = document.getElementById('exerciseBurnCalInput');
+
+            if (!exId) {
+                burnInput.value = '';
+                return;
+            }
+
+            const exObj = EXERCISE_OPTIONS.find(e => e.id === exId);
+            if (!exObj) return;
+
+            const user = getCurrentUser();
+            const weightKg = (user && parseFloat(user.profile?.currentWeight)) || 60;
+            const burned = Math.round(exObj.met * weightKg * (durationMins / 60));
+            burnInput.value = burned;
+        }
+
+        function addExerciseItem() {
+            const exSelect = document.getElementById('exerciseTypeSelect');
+            const durSelect = document.getElementById('exerciseDurationSelect');
+            const burnInput = document.getElementById('exerciseBurnCalInput');
+
+            const exId = exSelect.value;
+            const durationMins = parseInt(durSelect.value, 10) || 30;
+            const burnedCal = Math.max(0, parseInt(burnInput.value, 10) || 0);
+
+            if (!exId && burnedCal === 0) {
+                exSelect.focus();
+                return;
+            }
+
+            const exObj = EXERCISE_OPTIONS.find(e => e.id === exId);
+            const exName = exObj ? exObj.name : '自訂運動';
+
+            const dayLog = ensureSelectedDateLog();
+            dayLog.exercises.push({
+                name: exName,
+                duration: durationMins,
+                calories: burnedCal
+            });
+
+            exSelect.value = '';
+            burnInput.value = '';
+
+            saveToStorage();
+            renderExerciseItemsList(dayLog.exercises);
+            updateDayRatioSummary();
+            renderCalendar();
+            showToast(`已紀錄「${exName} ${durationMins}分鐘」(-${burnedCal} kcal)`);
+        }
+
+        function removeExerciseItem(index) {
+            const dayLog = ensureSelectedDateLog();
+            dayLog.exercises.splice(index, 1);
+
+            cleanupEmptyDayLog();
+            saveToStorage();
+            renderExerciseItemsList(dayLog.exercises);
+            updateDayRatioSummary();
+            renderCalendar();
+        }
+
+        function renderExerciseItemsList(exercises) {
+            const listEl = document.getElementById('exerciseItemsList');
+            const totalEl = document.getElementById('exerciseTotalCalDisplay');
+            if (!listEl || !totalEl) return;
+
+            const totalBurned = (exercises || []).reduce((s, e) => s + (Number(e.calories) || 0), 0);
+            totalEl.textContent = totalBurned;
+
+            if (!exercises || exercises.length === 0) {
+                listEl.innerHTML = '';
+                return;
+            }
+
+            listEl.innerHTML = exercises.map((ex, idx) => `
+                <div class="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-white border border-sky-200/80 text-xs">
+                    <div class="flex items-center gap-1.5 truncate">
+                        <span class="text-slate-700 font-medium truncate">${ex.name}</span>
+                        <span class="text-[11px] text-slate-400">(${ex.duration}分鐘)</span>
+                    </div>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <span class="font-semibold text-sky-600">-${ex.calories} kcal</span>
+                        <button type="button" onclick="removeExerciseItem(${idx})" class="text-slate-400 hover:text-rose-500 p-0.5 rounded transition-colors" title="刪除此運動紀錄">
+                            <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function cleanupEmptyDayLog() {
+            const user = getCurrentUser();
+            if (!user || !user.logs || !user.logs[selectedDateStr]) return;
+            const summary = calculateLogDaySummary(user.logs[selectedDateStr]);
+            if (!summary.hasAnyRecord) {
+                delete user.logs[selectedDateStr];
+            }
+        }
+
+        function saveDailyWeightLog() {
+            const weightInput = document.getElementById('dailyWeightInput');
+            const wVal = parseFloat(weightInput.value);
+            if (!wVal || wVal < 25 || wVal > 250) {
+                showToast('請輸入有效的體重數值 (kg)');
+                weightInput.focus();
+                return;
+            }
+
+            const user = getCurrentUser();
+            const dayLog = ensureSelectedDateLog();
+            dayLog.weight = wVal;
+
+            if (user.profile && user.profile.height) {
+                user.profile.currentWeight = wVal;
+                const updatedMetrics = calculateMetrics(user.profile);
+                if (updatedMetrics && user.dailyPlan) {
+                    user.dailyPlan.targetCalories = updatedMetrics.targetCalories;
+                    user.dailyPlan.tier = updatedMetrics.tier;
+                    user.dailyPlan.meals = updatedMetrics.meals;
+                }
+            }
+
+            saveToStorage();
+            updateDashboardCards();
+            renderCalendar();
+            loadSelectedDateDetails();
+            renderMonthlyWeightTable();
+            showToast(`已維護 ${selectedDateStr} 體重：${wVal} kg`);
+        }
+
+        function updateDayRatioSummary() {
+            const user = getCurrentUser();
+            const metrics = calculateMetrics(user.profile);
+            const targetCal = (user.dailyPlan && user.dailyPlan.targetCalories) || (metrics ? metrics.targetCalories : 0);
+
+            const rawLog = user.logs ? user.logs[selectedDateStr] : null;
+            const summary = calculateLogDaySummary(rawLog);
+
+            const totalFood = summary.foodCalories;
+            const totalExercise = summary.exerciseCalories;
+            const totalNet = summary.netCalories;
+            const ratio = (summary.hasAnyRecord && targetCal > 0) ? Math.round((totalNet / targetCal) * 100) : 0;
+
+            document.getElementById('dayFoodCal').textContent = totalFood;
+            document.getElementById('dayExerciseCal').textContent = `-${totalExercise}`;
+            document.getElementById('dayActualCal').textContent = totalNet;
+            document.getElementById('dayTotalRatio').textContent = targetCal > 0 ? `${ratio}%` : '--%';
+
+            const badge = document.getElementById('dayStatusBadge');
+            const bar = document.getElementById('dayProgressBar');
+            const diffHint = document.getElementById('dayDiffHint');
+
+            bar.style.width = targetCal > 0 ? `${Math.min(ratio, 100)}%` : '0%';
+
+            if (targetCal <= 0) {
+                badge.textContent = '尚未設定預算';
+                badge.className = 'text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700';
+                bar.className = 'bg-slate-300 h-full rounded-full transition-all duration-300';
+                diffHint.textContent = '請先點擊右上角「目標設定」輸入身高與體重';
+                diffHint.className = 'text-[11px] text-amber-600 text-right font-medium';
+                return;
+            }
+
+            if (!summary.hasAnyRecord) {
+                badge.textContent = '未紀錄';
+                badge.className = 'text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500';
+                bar.className = 'bg-slate-300 h-full rounded-full transition-all duration-300';
+                diffHint.textContent = `尚可攝取 ${targetCal} kcal`;
+                diffHint.className = 'text-[11px] text-slate-500 text-right';
+            } else if (ratio >= 85 && ratio <= 105) {
+                badge.textContent = '完美達標';
+                badge.className = 'text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700';
+                bar.className = 'bg-emerald-500 h-full rounded-full transition-all duration-300';
+                const diff = targetCal - totalNet;
+                diffHint.textContent = diff >= 0 ? `控制極佳！距離上限還有 ${diff} kcal` : `控制極佳！僅微幅超出 ${Math.abs(diff)} kcal`;
+                diffHint.className = 'text-[11px] text-emerald-600 text-right font-medium';
+            } else if (ratio < 85) {
+                badge.textContent = '熱量偏低';
+                badge.className = 'text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700';
+                bar.className = 'bg-amber-400 h-full rounded-full transition-all duration-300';
+                diffHint.textContent = `距離計畫目標還差 ${targetCal - totalNet} kcal`;
+                diffHint.className = 'text-[11px] text-amber-600 text-right font-medium';
+            } else {
+                badge.textContent = '熱量超標';
+                badge.className = 'text-[11px] font-semibold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700';
+                bar.className = 'bg-rose-500 h-full rounded-full transition-all duration-300';
+                diffHint.textContent = `已超出計畫預算 ${totalNet - targetCal} kcal，可透過運動平衡或下餐清淡`;
+                diffHint.className = 'text-[11px] text-rose-600 text-right font-medium';
+            }
+        }
+
+        // ==========================================
+        // 7. 輔助函式
+        // ==========================================
+        function formatDate(dateObj) {
+            const y = dateObj.getFullYear();
+            const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const d = String(dateObj.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        function capitalize(str) {
+            return str.charAt(0).toUpperCase() + str.slice(1);
+        }
+
+        let toastTimer;
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMessage').textContent = msg;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 2200);
+        }
+
+        // 啟動應用程式
+        window.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+</html>
